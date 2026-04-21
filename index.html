@@ -442,7 +442,7 @@ service cloud.firestore {
     </div>
   </div>
 
-  <!-- Firebase 應用邏輯 -->
+  <!-- Firebase 應用邏輯 (改為根目錄的共用資料夾，達成真正共用儲存) -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
     import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
@@ -461,7 +461,6 @@ service cloud.firestore {
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db = getFirestore(app);
-    const appId = typeof __app_id !== 'undefined' ? __app_id : 'little-bear-class-app';
 
     let currentUser = null;
     let currentView = 'home';
@@ -668,7 +667,6 @@ service cloud.firestore {
         
         // 產生一到日的日期
         w.days.forEach((d, dayIndex) => {
-          // 如果換月了但還在同一週，數字加個底線或顏色提示
           const isMainMonth = (d.getMonth() + 1) === w.mainMonth;
           const isWeekend = dayIndex === 5 || dayIndex === 6;
           const dateStr = `${d.getMonth()+1}/${d.getDate()}`;
@@ -721,8 +719,7 @@ service cloud.firestore {
         });
       }
 
-      const basePath = `artifacts/${appId}/users/${currentUser.uid}/annualEvents`;
-      
+      // 改為根目錄共用 Collection
       try {
         const btn = document.getElementById('btn-save-annual');
         let oldHtml = '';
@@ -732,16 +729,15 @@ service cloud.firestore {
           lucide.createIcons();
         }
         
-        await setDoc(doc(db, basePath, docId), { year, semester, weeks }, { merge: true });
+        await setDoc(doc(db, "bear_annualEvents", docId), { year, semester, weeks }, { merge: true });
         window.hasUnsavedAnnualChanges = false;
 
         // 存檔時，同步更新「全域學期設定」
-        const settingsPath = `artifacts/${appId}/users/${currentUser.uid}/scheduleSettings`;
         const newSettings = { academicYear: year, semester: semester };
         if (schSettings.id) {
-          await updateDoc(doc(db, settingsPath, schSettings.id), newSettings);
+          await updateDoc(doc(db, "bear_scheduleSettings", schSettings.id), newSettings);
         } else {
-          await addDoc(collection(db, settingsPath), { ...schSettings, ...newSettings });
+          await addDoc(collection(db, "bear_scheduleSettings"), { ...schSettings, ...newSettings });
         }
         
         if (btn) {
@@ -803,7 +799,7 @@ service cloud.firestore {
     window.handleStudentSubmit = async (e) => {
       e.preventDefault();
       if(!currentUser) return;
-      const basePath = `artifacts/${appId}/users/${currentUser.uid}/students`;
+      
       const data = {
         seatNo: document.getElementById('stu-seatNo').value,
         name: document.getElementById('stu-name').value,
@@ -815,9 +811,9 @@ service cloud.firestore {
       
       const editId = document.getElementById('student-edit-id').value;
       if (editId) {
-        await updateDoc(doc(db, basePath, editId), data);
+        await updateDoc(doc(db, "bear_students", editId), data);
       } else {
-        await addDoc(collection(db, basePath), data);
+        await addDoc(collection(db, "bear_students"), data);
       }
       resetStudentForm();
     };
@@ -847,7 +843,7 @@ service cloud.firestore {
 
     window.deleteStudent = async (id) => {
       if(!currentUser) return;
-      await deleteDoc(doc(db, `artifacts/${appId}/users/${currentUser.uid}/students`, id));
+      await deleteDoc(doc(db, "bear_students", id));
     };
 
     // =============== 模組 2: 藏書管理 ===============
@@ -909,19 +905,19 @@ service cloud.firestore {
         borrowDate: isBorrowed === '是' ? document.getElementById('book-borrowDate').value : '',
         returnDate: isBorrowed === '是' ? document.getElementById('book-returnDate').value : '',
       };
-      await addDoc(collection(db, `artifacts/${appId}/users/${currentUser.uid}/books`), data);
+      await addDoc(collection(db, "bear_books"), data);
       document.getElementById('form-book').reset();
       toggleBorrowFields();
     };
 
     window.returnBook = async (id) => {
       if(!currentUser) return;
-      await updateDoc(doc(db, `artifacts/${appId}/users/${currentUser.uid}/books`, id), { isBorrowed: '否', borrower: '', borrowDate: '', returnDate: '' });
+      await updateDoc(doc(db, "bear_books", id), { isBorrowed: '否', borrower: '', borrowDate: '', returnDate: '' });
     };
 
     window.deleteBook = async (id) => {
       if(!currentUser) return;
-      await deleteDoc(doc(db, `artifacts/${appId}/users/${currentUser.uid}/books`, id));
+      await deleteDoc(doc(db, "bear_books", id));
     };
 
     window.generateAutoArrange = () => {
@@ -1038,9 +1034,8 @@ service cloud.firestore {
         tbodyHtml += `<tr><td class="border-2 border-white/30 p-2 text-center bg-black/10">${hour}:00</td>`;
         weekDays.forEach(d => {
           const dateStr = formatDate(d);
-          const entry = scheduleEntriesData.find(e => e.date === dateStr && e.hour === hour);
           const isT = d.toDateString() === today.toDateString();
-          // 【核心修復】：安全注入排程資料，避免特殊符號導致 HTML 破壞
+          // 安全注入排程資料
           tbodyHtml += `<td id="sch-cell-${dateStr}-${hour}" onclick="handleCellClick('${dateStr}', ${hour})" class="border-2 border-white/30 p-2 h-16 cursor-pointer hover:bg-white/20 align-top text-sm transition-colors ${isT?'bg-yellow-500/10':''}"></td>`;
         });
         tbodyHtml += `</tr>`;
@@ -1080,14 +1075,13 @@ service cloud.firestore {
       openPrompt(`請輸入 ${dateStr} ${hour}:00 的課程內容:`, async (content) => {
         if(!currentUser) return;
         const exist = scheduleEntriesData.find(e => e.date === dateStr && e.hour === hour);
-        const basePath = `artifacts/${appId}/users/${currentUser.uid}/scheduleEntries`;
         
         try {
           if (content.trim() === '') {
-            if (exist) await deleteDoc(doc(db, basePath, exist.id));
+            if (exist) await deleteDoc(doc(db, "bear_scheduleEntries", exist.id));
           } else {
-            if (exist) await updateDoc(doc(db, basePath, exist.id), { content });
-            else await addDoc(collection(db, basePath), { date: dateStr, hour, content });
+            if (exist) await updateDoc(doc(db, "bear_scheduleEntries", exist.id), { content });
+            else await addDoc(collection(db, "bear_scheduleEntries"), { date: dateStr, hour, content });
           }
         } catch(error) {
           handleSnapshotError(error);
@@ -1139,10 +1133,9 @@ service cloud.firestore {
     };
 
     const saveSettingsToDb = async (newData, closeCallback) => {
-      const basePath = `artifacts/${appId}/users/${currentUser.uid}/scheduleSettings`;
       try {
         if(schSettings.id) {
-          await updateDoc(doc(db, basePath, schSettings.id), newData);
+          await updateDoc(doc(db, "bear_scheduleSettings", schSettings.id), newData);
         } else {
           const defaultData = {
             academicYear: schSettings.academicYear,
@@ -1151,7 +1144,7 @@ service cloud.firestore {
             coTeacher: schSettings.coTeacher,
             firstWeekLead: schSettings.firstWeekLead
           };
-          await addDoc(collection(db, basePath), { ...defaultData, ...newData });
+          await addDoc(collection(db, "bear_scheduleSettings"), { ...defaultData, ...newData });
         }
         closeCallback();
       } catch(error) {
@@ -1160,7 +1153,7 @@ service cloud.firestore {
       }
     };
 
-    // =============== Firebase 驗證與資料綁定 ===============
+    // =============== Firebase 驗證與資料庫綁定 ===============
     
     const handleSnapshotError = (error) => {
       console.error("Firestore Snapshot Error:", error);
@@ -1200,10 +1193,10 @@ service cloud.firestore {
     onAuthStateChanged(auth, (user) => {
       if (user) {
         currentUser = user;
-        const basePath = `artifacts/${appId}/users/${user.uid}`;
         
+        // 【核心修改】全部改為全域根目錄 (Global Collections)，不綁定任何使用者的身分，真正共享
         onSnapshot(
-          collection(db, `${basePath}/students`), 
+          collection(db, "bear_students"), 
           snap => {
             studentsData = snap.docs.map(d => ({id: d.id, ...d.data()}));
             if(currentView === 'students' || currentView === 'books') renderCurrentView();
@@ -1218,7 +1211,7 @@ service cloud.firestore {
         );
         
         onSnapshot(
-          collection(db, `${basePath}/books`), 
+          collection(db, "bear_books"), 
           snap => {
             booksData = snap.docs.map(d => ({id: d.id, ...d.data()}));
             if(currentView === 'books') renderCurrentView();
@@ -1227,7 +1220,7 @@ service cloud.firestore {
         );
 
         onSnapshot(
-          collection(db, `${basePath}/annualEvents`), 
+          collection(db, "bear_annualEvents"), 
           snap => {
             annualEventsData = snap.docs.map(d => ({id: d.id, ...d.data()}));
             if(currentView === 'annual' && !window.hasUnsavedAnnualChanges) {
@@ -1240,7 +1233,7 @@ service cloud.firestore {
         );
 
         onSnapshot(
-          collection(db, `${basePath}/scheduleSettings`), 
+          collection(db, "bear_scheduleSettings"), 
           snap => {
             if(snap.docs.length > 0) {
               const d = snap.docs[0].data();
@@ -1270,7 +1263,7 @@ service cloud.firestore {
         );
 
         onSnapshot(
-          collection(db, `${basePath}/scheduleEntries`), 
+          collection(db, "bear_scheduleEntries"), 
           snap => {
             scheduleEntriesData = snap.docs.map(d => ({id: d.id, ...d.data()}));
             if(currentView === 'schedule') renderCurrentView();
