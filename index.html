@@ -1,0 +1,1293 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>小熊班 資訊系統</title>
+  
+  <!-- 載入 Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- 載入 Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  
+  <!-- 自訂字體與樣式 -->
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Comic+Neue:wght@400;700&display=swap');
+    
+    body {
+      font-family: 'Comic Neue', 'Chalkboard SE', sans-serif;
+      background-color: #2b5b3f;
+      color: #f4f4f4;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    /* 黑板風格共用 Class */
+    .chalk-border { border: 2px dashed #f4f4f4; border-radius: 0.75rem; }
+    .chalk-box { background-color: #346b4b; border: 2px dashed #f4f4f4; border-radius: 0.75rem; padding: 1rem; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); }
+    .chalk-input { background: transparent; border-bottom: 2px solid #f4f4f4; color: white; outline: none; padding: 0.5rem; transition: border-color 0.2s;}
+    .chalk-input:focus { border-color: #fde047; }
+    .chalk-input::placeholder { color: #bbf7d0; opacity: 0.7; }
+    .chalk-btn { display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; padding: 0.5rem 1rem; border: 2px solid white; border-radius: 0.5rem; font-weight: bold; cursor: pointer; transition: background-color 0.2s; }
+    .chalk-btn:hover { background-color: rgba(255, 255, 255, 0.2); }
+    
+    /* 隱藏區塊用 */
+    .hidden-view { display: none !important; }
+    
+    /* 日期輸入框的圖示反白 */
+    input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(1); }
+
+    /* 年度行事曆專用表格樣式 */
+    .annual-table th, .annual-table td {
+      border: 1px solid rgba(255, 255, 255, 0.4);
+      padding: 0.25rem;
+      text-align: center;
+      vertical-align: middle;
+    }
+    .annual-table textarea {
+      width: 100%;
+      min-height: 60px;
+      background: transparent;
+      outline: none;
+      resize: vertical;
+      text-align: left;
+      padding: 0.25rem;
+    }
+    .annual-table textarea:focus { background-color: rgba(255,255,255,0.1); border-radius: 4px; }
+  </style>
+</head>
+<body class="p-4 md:p-8">
+
+  <!-- 載入中畫面 -->
+  <div id="loading-screen" class="fixed inset-0 bg-[#2b5b3f] z-50 flex items-center justify-center text-2xl font-bold flex-col gap-4 text-center">
+    載入中 🐻...
+  </div>
+
+  <!-- 資料庫權限錯誤提示 -->
+  <div id="db-error-message" class="hidden-view fixed top-4 left-1/2 -translate-x-1/2 bg-red-600/95 text-white px-6 py-4 rounded-xl shadow-2xl z-[100] border-2 border-white backdrop-blur-sm w-11/12 max-w-lg text-center font-bold">
+    ⚠️ 資料庫連線被拒絕 (Permission Denied)<br>
+    <span class="text-sm font-normal mt-2 block text-yellow-100 text-left bg-black/30 p-3 rounded mt-3">
+      您的 Firebase Firestore 規則目前阻擋了存取。<br>
+      請至 <strong>Firebase Console -> Firestore Database -> Rules</strong>，將內容完全取代為以下規則並發布：<br><br>
+      <code class="block whitespace-pre text-xs text-white overflow-x-auto">rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}</code>
+    </span>
+    <button onclick="document.getElementById('db-error-message').classList.add('hidden-view')" class="mt-4 text-sm bg-white text-red-600 px-4 py-1.5 rounded-full hover:bg-gray-200">我知道了，先關閉提示</button>
+  </div>
+
+  <!-- 標頭 Header -->
+  <header class="flex flex-col md:flex-row justify-between items-center mb-8 border-b-4 border-white/50 pb-4 border-dashed">
+    <div class="flex items-center gap-3 cursor-pointer" onclick="navigate('home')">
+      <span class="text-4xl">🐻</span>
+      <h1 class="text-3xl md:text-4xl font-bold tracking-widest text-yellow-100">小熊班 資訊系統</h1>
+    </div>
+    
+    <div class="flex items-center gap-6 mt-4 md:mt-0">
+      <!-- 天氣與日曆 -->
+      <div class="flex items-center gap-4 bg-white/10 p-3 rounded-xl border border-white/30 backdrop-blur-sm">
+        <div class="flex flex-col items-center justify-center border-2 border-white rounded bg-red-900 overflow-hidden shadow-lg w-16 h-16">
+          <div id="header-month" class="bg-red-600 w-full text-center text-xs py-0.5 text-white font-bold border-b border-white">月</div>
+          <div id="header-date" class="bg-white w-full h-full flex items-center justify-center text-red-900 font-bold text-2xl">00</div>
+        </div>
+        <div class="flex flex-col text-center w-12">
+          <div id="weather-icon" class="text-3xl flex justify-center"><i data-lucide="sun" class="text-yellow-300 w-8 h-8"></i></div>
+          <span id="weather-temp" class="text-sm mt-1">--°C</span>
+        </div>
+      </div>
+      
+      <!-- 回首頁按鈕 (動態顯示) -->
+      <button id="btn-back-home" onclick="navigate('home')" class="chalk-btn hidden-view">
+        <i data-lucide="home" class="w-5 h-5"></i> 回首頁
+      </button>
+    </div>
+  </header>
+
+  <!-- 主要內容區 -->
+  <main class="flex-grow">
+    
+    <!-- 視圖 1: 首頁 -->
+    <div id="view-home" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 max-w-7xl mx-auto mt-12 hidden-view">
+      <div onclick="navigate('annual')" class="chalk-box flex flex-col items-center text-center cursor-pointer hover:-translate-y-2 hover:shadow-2xl transition-transform group">
+        <div class="text-yellow-300 group-hover:scale-110 transition-transform mb-4"><i data-lucide="map" class="w-12 h-12"></i></div>
+        <h2 class="text-2xl font-bold mb-2 tracking-wider">學校年度行事曆</h2>
+        <p class="text-green-100 text-sm">設定學年度、學期與每週重點</p>
+        <div class="mt-auto pt-6 text-2xl">🐾</div>
+      </div>
+      <div onclick="navigate('schedule')" class="chalk-box flex flex-col items-center text-center cursor-pointer hover:-translate-y-2 hover:shadow-2xl transition-transform group">
+        <div class="text-yellow-300 group-hover:scale-110 transition-transform mb-4"><i data-lucide="calendar" class="w-12 h-12"></i></div>
+        <h2 class="text-2xl font-bold mb-2 tracking-wider">每週排程行事曆</h2>
+        <p class="text-green-100 text-sm">每週課程細部安排、教師輪值表</p>
+        <div class="mt-auto pt-6 text-2xl">🐾</div>
+      </div>
+      <div onclick="navigate('books')" class="chalk-box flex flex-col items-center text-center cursor-pointer hover:-translate-y-2 hover:shadow-2xl transition-transform group">
+        <div class="text-yellow-300 group-hover:scale-110 transition-transform mb-4"><i data-lucide="book-open" class="w-12 h-12"></i></div>
+        <h2 class="text-2xl font-bold mb-2 tracking-wider">教室藏書管理</h2>
+        <p class="text-green-100 text-sm">圖書資料、借閱紀錄、自動輪借</p>
+        <div class="mt-auto pt-6 text-2xl">🐾</div>
+      </div>
+      <div onclick="navigate('students')" class="chalk-box flex flex-col items-center text-center cursor-pointer hover:-translate-y-2 hover:shadow-2xl transition-transform group">
+        <div class="text-yellow-300 group-hover:scale-110 transition-transform mb-4"><i data-lucide="users" class="w-12 h-12"></i></div>
+        <h2 class="text-2xl font-bold mb-2 tracking-wider">學生資料管理</h2>
+        <p class="text-green-100 text-sm">基本資料、聯絡人、過敏原紀錄</p>
+        <div class="mt-auto pt-6 text-2xl">🐾</div>
+      </div>
+    </div>
+
+    <!-- 視圖 5: 學校年度行事曆 -->
+    <div id="view-annual" class="max-w-[1400px] mx-auto space-y-6 hidden-view">
+      <div class="chalk-box flex flex-wrap gap-6 items-end justify-between relative overflow-hidden">
+        <div class="flex flex-wrap gap-4 items-end relative z-10">
+          <div>
+            <label class="block text-sm mb-1 text-yellow-200">設定學年度</label>
+            <input type="number" id="annual-year" class="chalk-input w-24 text-center text-xl font-bold" value="114" onchange="changeAnnualSemester()">
+          </div>
+          <div>
+            <label class="block text-sm mb-1 text-yellow-200">設定學期</label>
+            <select id="annual-semester" class="chalk-input text-black bg-white w-32 text-xl font-bold" onchange="changeAnnualSemester()">
+              <option value="上學期">上學期</option>
+              <option value="下學期">下學期</option>
+            </select>
+          </div>
+        </div>
+        <div class="flex gap-3 relative z-10">
+          <button onclick="saveAnnual()" id="btn-save-annual" class="chalk-btn bg-yellow-600/70 hover:bg-yellow-500/80 transition-all shadow-lg text-lg px-6 py-2">
+            <i data-lucide="save"></i> 儲存本學期行事曆
+          </button>
+        </div>
+      </div>
+
+      <div class="chalk-box overflow-x-auto">
+        <h2 class="text-2xl font-bold mb-4 flex items-center justify-center gap-2 border-b-2 border-dashed border-white/30 pb-4 text-center">
+          <span id="annual-title-display" class="text-yellow-300 tracking-wider">臺中市某某幼兒園 114 學年度 第 2 學期</span><br>教學活動暨行事曆【教師版】
+        </h2>
+        
+        <div class="min-w-[1000px]">
+          <table class="w-full annual-table border-collapse text-sm">
+            <thead>
+              <tr class="bg-white/20 text-yellow-100 font-bold">
+                <th rowspan="2" class="w-10">月份</th>
+                <th rowspan="2" class="w-10">週次</th>
+                <th colspan="7">日 期</th>
+                <th rowspan="2" class="w-[30%]">行事曆 (重點事項)</th>
+                <th rowspan="2" class="w-[12%]">主 題</th>
+                <th rowspan="2" class="w-[20%]">課 程 目 標</th>
+              </tr>
+              <tr class="bg-white/10 text-yellow-50 font-bold">
+                <th class="w-8">一</th><th class="w-8">二</th><th class="w-8">三</th><th class="w-8">四</th><th class="w-8">五</th><th class="w-8 text-red-200">六</th><th class="w-8 text-red-200">日</th>
+              </tr>
+            </thead>
+            <tbody id="annual-table-body">
+              <!-- JS 動態產生表格內容 -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- 視圖 2: 學生管理 -->
+    <div id="view-students" class="max-w-5xl mx-auto space-y-8 hidden-view">
+      <div class="chalk-box">
+        <h2 id="student-form-title" class="text-2xl font-bold mb-4 flex items-center gap-2"><i data-lucide="plus-circle"></i> 新增學生資料</h2>
+        <form id="form-student" onsubmit="handleStudentSubmit(event)" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <input type="hidden" id="student-edit-id" value="">
+          <input required type="number" id="stu-seatNo" placeholder="座號" class="chalk-input">
+          <input required type="text" id="stu-name" placeholder="姓名" class="chalk-input">
+          <select id="stu-gender" class="chalk-input text-black bg-white">
+            <option value="男">男</option>
+            <option value="女">女</option>
+          </select>
+          <input type="text" id="stu-allergens" placeholder="過敏原 (無則免填)" class="chalk-input">
+          <input required type="text" id="stu-contact" placeholder="緊急聯絡人" class="chalk-input">
+          <input required type="text" id="stu-phone" placeholder="緊急聯絡電話" class="chalk-input">
+          <div class="md:col-span-3 flex justify-end gap-2 mt-2">
+            <button type="button" id="btn-cancel-student" onclick="resetStudentForm()" class="chalk-btn hidden-view">取消</button>
+            <button type="submit" class="chalk-btn bg-yellow-600/50">儲存資料</button>
+          </div>
+        </form>
+      </div>
+      <div class="chalk-box overflow-x-auto">
+        <h2 class="text-2xl font-bold mb-4 flex items-center gap-2"><i data-lucide="users"></i> 班級學生名單 (<span id="student-count">0</span> 人)</h2>
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="border-b-2 border-white/50">
+              <th class="p-2">座號</th><th class="p-2">姓名</th><th class="p-2">性別</th>
+              <th class="p-2 text-red-200">過敏原</th><th class="p-2">聯絡人</th><th class="p-2">聯絡電話</th>
+              <th class="p-2 text-center">操作</th>
+            </tr>
+          </thead>
+          <tbody id="student-table-body">
+            <!-- 學生列表動態產生 -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 視圖 3: 藏書管理 -->
+    <div id="view-books" class="max-w-6xl mx-auto hidden-view">
+      <div class="flex gap-4 mb-6">
+        <button onclick="switchBookTab('list')" id="tab-book-list" class="chalk-btn bg-white/30"><i data-lucide="book-marked"></i> 藏書清單與借閱</button>
+        <button onclick="switchBookTab('auto')" id="tab-book-auto" class="chalk-btn"><i data-lucide="check-square"></i> 藏書租借自動安排</button>
+      </div>
+
+      <!-- 藏書清單分頁 -->
+      <div id="book-tab-list" class="space-y-8">
+        <div class="chalk-box">
+          <h2 class="text-2xl font-bold mb-4">新增藏書 / 借閱紀錄</h2>
+          <form id="form-book" onsubmit="handleBookSubmit(event)" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <input required type="text" id="book-title" placeholder="書名" class="chalk-input">
+            <input type="text" id="book-author" placeholder="作者" class="chalk-input">
+            <select id="book-isBorrowed" onchange="toggleBorrowFields()" class="chalk-input text-black bg-white">
+              <option value="否">是否借出：否</option>
+              <option value="是">是否借出：是</option>
+            </select>
+            <div id="borrow-fields" class="md:col-span-3 grid grid-cols-1 md:grid-cols-3 gap-4 hidden-view">
+              <select id="book-borrower" class="chalk-input text-black bg-white">
+                <option value="">選擇借出人員</option>
+              </select>
+              <input type="date" id="book-borrowDate" class="chalk-input" title="借出日期">
+              <input type="date" id="book-returnDate" class="chalk-input" title="預計還書日期">
+            </div>
+            <div class="md:col-span-3 flex justify-end mt-2">
+              <button type="submit" class="chalk-btn bg-yellow-600/50">儲存書籍</button>
+            </div>
+          </form>
+        </div>
+        <div class="chalk-box overflow-x-auto">
+          <h2 class="text-2xl font-bold mb-4">藏書清單 (共 <span id="book-count">0</span> 本)</h2>
+          <table class="w-full text-left border-collapse">
+            <thead>
+              <tr class="border-b-2 border-white/50">
+                <th class="p-2">書名</th><th class="p-2">作者</th><th class="p-2">狀態</th>
+                <th class="p-2">借閱人</th><th class="p-2">借出日</th><th class="p-2">操作</th>
+              </tr>
+            </thead>
+            <tbody id="book-table-body">
+               <!-- 藏書列表動態產生 -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 自動安排分頁 -->
+      <div id="book-tab-auto" class="grid grid-cols-1 lg:grid-cols-3 gap-6 hidden-view">
+        <div class="chalk-box lg:col-span-1 h-fit">
+          <h2 class="text-xl font-bold mb-4">1. 參數設定</h2>
+          <div class="mb-4">
+            <label class="block mb-2">設定可租借週數：</label>
+            <input type="number" id="auto-weeks" min="1" value="1" class="chalk-input w-full">
+          </div>
+          <div class="mb-4">
+            <label class="block mb-2 text-yellow-200">2. 勾選欲租借的書</label>
+            <div id="auto-book-checkboxes" class="max-h-60 overflow-y-auto border border-white/30 p-2 rounded">
+              <!-- Checkboxes 產生區 -->
+            </div>
+          </div>
+          <button onclick="generateAutoArrange()" class="chalk-btn w-full justify-center bg-yellow-600/50">
+            產生每週借閱表
+          </button>
+        </div>
+        <div class="chalk-box lg:col-span-2 overflow-x-auto">
+          <h2 class="text-xl font-bold mb-4">自動安排結果</h2>
+          <div id="auto-arrange-results" class="space-y-6">
+            <div class="text-center text-gray-300 py-10">請設定參數並點擊產生</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 視圖 4: 行事曆與排程 -->
+    <div id="view-schedule" class="flex flex-col gap-6 hidden-view">
+      <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        <!-- 迷你月曆 -->
+        <div class="chalk-box lg:col-span-1 flex flex-col items-center">
+          <div class="w-full max-w-[250px]">
+            <div class="flex justify-between items-center mb-4">
+              <button onclick="navMiniCal(-1)" class="hover:text-yellow-300"><i data-lucide="chevron-left"></i></button>
+              <div id="mini-cal-title" class="font-bold"></div>
+              <button onclick="navMiniCal(1)" class="hover:text-yellow-300"><i data-lucide="chevron-right"></i></button>
+            </div>
+            <div class="grid grid-cols-7 gap-1 text-center text-sm mb-2 text-yellow-100">
+              <div>日</div><div>一</div><div>二</div><div>三</div><div>四</div><div>五</div><div>六</div>
+            </div>
+            <div id="mini-cal-grid" class="grid grid-cols-7 gap-1 text-center text-sm">
+              <!-- 月曆天數 -->
+            </div>
+          </div>
+        </div>
+
+        <!-- 學期資訊與當週重點 -->
+        <div class="chalk-box lg:col-span-3 relative">
+          <div class="absolute top-4 right-4 flex gap-3">
+            <button onclick="openLinkSettings()" class="text-white/50 hover:text-yellow-300 transition-colors" title="行事曆關聯設定">
+              <i data-lucide="link" class="w-5 h-5"></i>
+            </button>
+            <button onclick="openTeacherSettings()" class="text-white/50 hover:text-yellow-300 transition-colors" title="教師輪值設定">
+              <i data-lucide="users" class="w-5 h-5"></i>
+            </button>
+          </div>
+          <div class="flex flex-col h-full justify-between">
+            <div>
+              <h2 id="sch-header-title" class="text-2xl font-bold mb-2 text-yellow-300">學年度 - 第 1 週</h2>
+              <div class="flex gap-4 text-lg mb-4">
+                <span id="sch-lead-teacher" class="bg-red-500/30 px-3 py-1 rounded-full border border-red-300">👑 主教：--</span>
+                <span id="sch-co-teacher" class="bg-blue-500/30 px-3 py-1 rounded-full border border-blue-300">🤝 協同：--</span>
+              </div>
+            </div>
+            <div class="bg-white/10 p-3 rounded-lg border border-dashed border-white/50 relative">
+              <button onclick="navigate('annual')" class="absolute top-2 right-2 text-xs bg-white/20 hover:bg-white/40 px-2 py-1 rounded transition-colors text-white">
+                前往「年度行事曆」編輯
+              </button>
+              <h3 class="font-bold text-green-200 mb-1">📝 本週學校重點事項 (與主題)：</h3>
+              <textarea id="sch-weekly-event" readonly class="w-full bg-transparent outline-none text-white placeholder-white/40 resize-none cursor-default font-bold" rows="2" placeholder="尚無重點事項 (請至首頁「學校年度行事曆」設定)"></textarea>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 每週行事曆 Grid -->
+      <div class="chalk-box">
+        <div class="flex justify-between items-center mb-4">
+          <button onclick="navWeek(-1)" class="chalk-btn"><i data-lucide="chevron-left" class="w-5 h-5"></i> 上一週</button>
+          <h2 id="sch-week-range" class="text-xl font-bold text-center"></h2>
+          <button onclick="navWeek(1)" class="chalk-btn">下一週 <i data-lucide="chevron-right" class="w-5 h-5"></i></button>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full border-collapse min-w-[800px]">
+            <thead>
+              <tr id="sch-grid-header">
+                <!-- 動態產生星期標題 -->
+              </tr>
+            </thead>
+            <tbody id="sch-grid-body">
+              <!-- 動態產生時段與格子 -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- 客製化彈窗 (用於行事曆輸入) -->
+  <div id="custom-prompt-modal" class="hidden-view fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+    <div class="chalk-box w-full max-w-sm">
+      <h3 id="custom-prompt-title" class="text-xl font-bold mb-4"></h3>
+      <input type="text" id="custom-prompt-input" class="w-full chalk-input mb-6" placeholder="請輸入內容...">
+      <div class="flex justify-end gap-3">
+        <button onclick="closePrompt()" class="chalk-btn">取消</button>
+        <button onclick="submitPrompt()" class="chalk-btn bg-yellow-600/50">確定</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 行事曆關聯設定 Modal -->
+  <div id="sch-link-modal" class="hidden-view fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+    <div class="chalk-box w-full max-w-md">
+      <div class="flex justify-between items-center mb-6">
+        <h2 class="text-2xl font-bold flex items-center gap-2"><i data-lucide="link"></i> 行事曆關聯設定</h2>
+        <button onclick="closeLinkSettings()" class="hover:text-red-400"><i data-lucide="x"></i></button>
+      </div>
+      <div class="space-y-4">
+        <div class="bg-white/10 p-3 rounded text-sm text-yellow-100 border border-white/20 mb-2">
+          💡 此處設定的學年度與學期，將會用來自動載入「學校年度行事曆」的當週重點事項。
+        </div>
+        <div>
+          <label class="block text-sm mb-1">對應學年度</label>
+          <input id="set-link-year" class="chalk-input w-full font-bold" value="114">
+        </div>
+        <div>
+          <label class="block text-sm mb-1">對應學期</label>
+          <select id="set-link-semester" class="chalk-input w-full text-black bg-white font-bold">
+            <option value="上學期">上學期</option>
+            <option value="下學期">下學期</option>
+          </select>
+        </div>
+        <button onclick="saveLinkSettings()" class="chalk-btn w-full justify-center bg-yellow-600/50 mt-4">儲存關聯設定</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 教師輪值設定 Modal -->
+  <div id="sch-teacher-modal" class="hidden-view fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+    <div class="chalk-box w-full max-w-md">
+      <div class="flex justify-between items-center mb-6">
+        <h2 class="text-2xl font-bold flex items-center gap-2"><i data-lucide="users"></i> 教師輪值設定</h2>
+        <button onclick="closeTeacherSettings()" class="hover:text-red-400"><i data-lucide="x"></i></button>
+      </div>
+      <div class="space-y-4">
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm mb-1">教師 A</label>
+            <input id="set-teacher-lead" class="chalk-input w-full" value="大熊老師" oninput="updateFirstLeadDropdown()">
+          </div>
+          <div>
+            <label class="block text-sm mb-1">教師 B</label>
+            <input id="set-teacher-co" class="chalk-input w-full" value="兔兔老師" oninput="updateFirstLeadDropdown()">
+          </div>
+        </div>
+        <div class="mt-4 border-t border-white/30 pt-4">
+          <label class="block text-sm mb-1 text-yellow-200">設定第一週的主教老師 (系統會自動隔週輪替)</label>
+          <select id="set-teacher-firstLead" class="chalk-input w-full text-black bg-white font-bold">
+            <!-- 選項由 JS 動態產生 -->
+          </select>
+        </div>
+        <button onclick="saveTeacherSettings()" class="chalk-btn w-full justify-center bg-yellow-600/50 mt-4">儲存教師設定</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Firebase 應用邏輯 -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getFirestore, collection, onSnapshot, doc, setDoc, addDoc, deleteDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+    // 系統變數
+    const firebaseConfig = {
+      apiKey: "AIzaSyC0jlWhJ-9J969SuuHt3uZVaHJaoOXTMus",
+      authDomain: "github-class-info.firebaseapp.com",
+      projectId: "github-class-info",
+      storageBucket: "github-class-info.firebasestorage.app",
+      messagingSenderId: "875585105725",
+      appId: "1:875585105725:web:9d2c3ffc03f4e9b2fbdf54",
+      measurementId: "G-HM8WZTSBVN"
+    };
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'little-bear-class-app';
+
+    let currentUser = null;
+    let currentView = 'home';
+    let today = new Date();
+    
+    // 全域資料陣列
+    let studentsData = [];
+    let booksData = [];
+    let scheduleEntriesData = [];
+    let annualEventsData = []; // 年度行事曆資料
+    let schSettings = { academicYear: '114', semester: '下學期', leadTeacher: '大熊老師', coTeacher: '兔兔老師', firstWeekLead: '大熊老師', id: null };
+
+    // 全域變數：追蹤是否有未儲存的變更
+    window.hasUnsavedAnnualChanges = false;
+    window.currentRenderedYear = '114';
+    window.currentRenderedSemester = '下學期';
+
+    // 離開網頁前的防呆警告
+    window.addEventListener('beforeunload', (e) => {
+      if (window.hasUnsavedAnnualChanges) {
+         e.preventDefault();
+         e.returnValue = '';
+      }
+    });
+
+    // 排程相關狀態 (利用 localStorage 記憶上次看過的日期，避免重新整理後跳回今天)
+    let schCurrentDate = new Date();
+    const savedSchDate = localStorage.getItem('bearClass_schCurrentDate');
+    if (savedSchDate) {
+        const parsed = new Date(savedSchDate);
+        if (!isNaN(parsed)) schCurrentDate = parsed;
+    }
+    let viewingWeek = 1;
+    let promptCallback = null;
+
+    // 共用函數：格式化日期
+    const formatDate = (d) => `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`;
+    const getWeekDays = (date) => {
+      const current = new Date(date);
+      const day = current.getDay();
+      const diff = current.getDate() - day + (day === 0 ? -6 : 1); // 將日曆第一天定為星期一
+      const monday = new Date(current.setDate(diff));
+      return Array.from({length:7}).map((_,i) => {
+        const d = new Date(monday);
+        d.setDate(monday.getDate() + i);
+        return d;
+      });
+    };
+
+    // 取得開學週的星期一 (模擬演算法：上學期約 8月底，下學期約 2月中)
+    const getSemesterStartMonday = (minguoYear, semester) => {
+      const gregorianYear = parseInt(minguoYear) + 1911;
+      let targetDate;
+      if (semester === '上學期') {
+        targetDate = new Date(gregorianYear, 7, 30); // 八月底
+      } else {
+        // 以 114學年下學期為例，開學在 2026/02/11 附近，週一為 2/09
+        targetDate = new Date(gregorianYear + 1, 1, 11); 
+      }
+      // 找出該週的星期一
+      const day = targetDate.getDay();
+      const diff = targetDate.getDate() - day + (day === 0 ? -6 : 1);
+      return new Date(targetDate.setDate(diff));
+    };
+
+    // 計算目標日期是該學期的第幾週
+    const getViewingWeek = (currentDate, year, semester) => {
+      const startMonday = getSemesterStartMonday(year, semester);
+      const currentTarget = new Date(currentDate);
+      const day = currentTarget.getDay();
+      const diffToMonday = currentTarget.getDate() - day + (day === 0 ? -6 : 1);
+      const currentMonday = new Date(currentTarget.setDate(diffToMonday));
+      
+      // 將時間歸零以避免日光節約等時間誤差
+      startMonday.setHours(0,0,0,0);
+      currentMonday.setHours(0,0,0,0);
+      
+      const diffTime = currentMonday.getTime() - startMonday.getTime();
+      const diffWeeks = Math.floor(diffTime / (1000 * 60 * 60 * 24 * 7));
+      
+      // 確保週次介於第 1 週到第 21 週之間
+      return Math.max(1, Math.min(21, diffWeeks + 1));
+    };
+
+    // 取得天氣
+    fetch('https://api.open-meteo.com/v1/forecast?latitude=23.5&longitude=121&current_weather=true')
+      .then(res => res.json())
+      .then(data => {
+        const code = data.current_weather.weathercode;
+        document.getElementById('weather-temp').innerText = `${data.current_weather.temperature}°C`;
+        let iconName = 'sun';
+        if (code >= 1 && code <= 3) iconName = 'cloud';
+        if (code >= 51) iconName = 'cloud-rain';
+        document.getElementById('weather-icon').innerHTML = `<i data-lucide="${iconName}" class="w-8 h-8 ${iconName==='sun'?'text-yellow-300':'text-blue-200'}"></i>`;
+        lucide.createIcons();
+      }).catch(e => console.log('Weather err'));
+
+    // 更新 Header 日期
+    document.getElementById('header-month').innerText = `${today.getMonth()+1}月`;
+    document.getElementById('header-date').innerText = today.getDate();
+
+    // =============== 畫面切換控制 ===============
+    window.navigate = (viewId) => {
+      if (window.hasUnsavedAnnualChanges && viewId !== currentView) {
+         if(!confirm("⚠️ 您在「學校年度行事曆」有尚未儲存的資料！\n確定要切換頁面嗎？（離開將遺失未儲存內容）")) {
+             return;
+         }
+         window.hasUnsavedAnnualChanges = false;
+      }
+
+      currentView = viewId;
+      ['home', 'annual', 'students', 'books', 'schedule'].forEach(v => {
+        document.getElementById(`view-${v}`).classList.add('hidden-view');
+      });
+      document.getElementById(`view-${viewId}`).classList.remove('hidden-view');
+      
+      const btnHome = document.getElementById('btn-back-home');
+      if(viewId === 'home') btnHome.classList.add('hidden-view');
+      else btnHome.classList.remove('hidden-view');
+
+      renderCurrentView();
+    };
+
+    const renderCurrentView = () => {
+      if (currentView === 'annual') renderAnnual();
+      if (currentView === 'students') renderStudents();
+      if (currentView === 'books') renderBooks();
+      if (currentView === 'schedule') renderSchedule();
+      lucide.createIcons();
+    };
+
+    // =============== 模組 0: 學校年度行事曆 ===============
+    window.changeAnnualSemester = () => {
+      if (window.hasUnsavedAnnualChanges) {
+          if(!confirm("⚠️ 您有尚未儲存的資料！\n切換學期將遺失目前的變更，確定要切換嗎？\n(按取消並點擊右上角「儲存」來保留資料)")) {
+              // 復原下拉選單到原本的值
+              const yrInput = document.getElementById('annual-year');
+              const semSelect = document.getElementById('annual-semester');
+              if (yrInput) yrInput.value = window.currentRenderedYear;
+              if (semSelect) semSelect.value = window.currentRenderedSemester;
+              return;
+          }
+      }
+      window.hasUnsavedAnnualChanges = false;
+      renderAnnual();
+    };
+
+    window.renderAnnual = () => {
+      const year = document.getElementById('annual-year').value || '114';
+      const semester = document.getElementById('annual-semester').value || '下學期';
+      const termString = semester === '上學期' ? '1' : '2';
+      
+      window.currentRenderedYear = year;
+      window.currentRenderedSemester = semester;
+
+      document.getElementById('annual-title-display').innerHTML = `某幼兒園 ${year} 學年度 第 ${termString} 學期`;
+
+      // 產生指定的文件 ID 來比對資料
+      const docId = `${year}_${semester}`;
+      const dataObj = annualEventsData.find(d => d.id === docId);
+      
+      // 確保 weeks 資料結構為陣列物件 (相容舊資料)
+      let savedWeeks = [];
+      if (dataObj && dataObj.weeks) {
+        savedWeeks = dataObj.weeks.map(w => typeof w === 'string' ? { events: w, theme: '', obj: '' } : w);
+      } else {
+        savedWeeks = Array(21).fill({ events: '', theme: '', obj: '' });
+      }
+
+      // 推算本學期的 21 週日期
+      const startMonday = getSemesterStartMonday(year, semester);
+      let weeksData = [];
+      let currentDate = new Date(startMonday);
+
+      for (let i = 0; i < 21; i++) {
+        let days = [];
+        for (let j = 0; j < 7; j++) {
+          days.push(new Date(currentDate));
+          currentDate.setDate(currentDate.getDate() + 1);
+        }
+        // 以週四決定這個禮拜主要屬於哪一個月 (ISO 8601 邏輯)
+        let mainMonth = days[3].getMonth() + 1;
+        weeksData.push({ weekNum: i + 1, mainMonth, days });
+      }
+
+      // 計算每個主要月份橫跨多少週 (用於 rowspan)
+      let monthCounts = {};
+      weeksData.forEach(w => { monthCounts[w.mainMonth] = (monthCounts[w.mainMonth] || 0) + 1; });
+
+      // 產生 Table Body 的 HTML 結構 (先不填入可能包含特殊字元的資料)
+      let html = '';
+      let renderedMonths = {};
+
+      weeksData.forEach((w, index) => {
+        html += `<tr class="border-b border-white/20 hover:bg-white/5 transition-colors group">`;
+        
+        // 處理月份合併儲存格
+        if (!renderedMonths[w.mainMonth]) {
+          html += `<td rowspan="${monthCounts[w.mainMonth]}" class="font-bold text-lg bg-black/30">${w.mainMonth}<br>月</td>`;
+          renderedMonths[w.mainMonth] = true;
+        }
+
+        html += `<td class="font-bold text-yellow-300 bg-black/10">${w.weekNum}</td>`;
+        
+        // 產生一到日的日期
+        w.days.forEach((d, dayIndex) => {
+          // 如果換月了但還在同一週，數字加個底線或顏色提示
+          const isMainMonth = (d.getMonth() + 1) === w.mainMonth;
+          const isWeekend = dayIndex === 5 || dayIndex === 6;
+          const dateStr = `${d.getMonth()+1}/${d.getDate()}`;
+          const tdClasses = `cursor-pointer hover:bg-white/20 hover:scale-125 hover:font-bold transition-all ${!isMainMonth ? 'text-white/40' : (isWeekend ? 'text-red-200' : '')}`;
+          html += `<td class="${tdClasses}" onclick="addDailyEvent(${index}, '${dateStr}')" title="點擊新增 ${dateStr} 重點事項">${d.getDate()}</td>`;
+        });
+
+        // 行事曆輸入框 (使用安全注入，所以不直接在 HTML 字串中插入 value)
+        html += `
+          <td><textarea id="annual-events-${index}" placeholder="輸入本週重要事項..." oninput="window.hasUnsavedAnnualChanges=true"></textarea></td>
+          <td><textarea id="annual-theme-${index}" class="text-center" placeholder="主題" oninput="window.hasUnsavedAnnualChanges=true"></textarea></td>
+          <td><textarea id="annual-obj-${index}" placeholder="課程目標" oninput="window.hasUnsavedAnnualChanges=true"></textarea></td>
+        </tr>`;
+      });
+
+      document.getElementById('annual-table-body').innerHTML = html;
+
+      // 【核心修復】：安全注入資料，避免使用者輸入特殊符號造成 HTML 結構破壞導致資料空白
+      weeksData.forEach((w, index) => {
+        const savedData = savedWeeks[index] || { events: '', theme: '', obj: '' };
+        const evEl = document.getElementById(`annual-events-${index}`);
+        const thEl = document.getElementById(`annual-theme-${index}`);
+        const obEl = document.getElementById(`annual-obj-${index}`);
+        
+        if (evEl) evEl.value = savedData.events || '';
+        if (thEl) thEl.value = savedData.theme || '';
+        if (obEl) obEl.value = savedData.obj || '';
+      });
+
+      lucide.createIcons();
+    };
+
+    window.saveAnnual = async () => {
+      if(!currentUser) return;
+      const yearInput = document.getElementById('annual-year');
+      if (!yearInput) return;
+
+      const year = yearInput.value || '114';
+      const semester = document.getElementById('annual-semester').value || '下學期';
+      const docId = `${year}_${semester}`;
+
+      const weeks = [];
+      for(let i=0; i<21; i++) {
+        const evEl = document.getElementById(`annual-events-${i}`);
+        if (!evEl) return;
+        weeks.push({
+          events: evEl.value,
+          theme: document.getElementById(`annual-theme-${i}`).value,
+          obj: document.getElementById(`annual-obj-${i}`).value
+        });
+      }
+
+      const basePath = `artifacts/${appId}/users/${currentUser.uid}/annualEvents`;
+      
+      try {
+        const btn = document.getElementById('btn-save-annual');
+        let oldHtml = '';
+        if (btn) {
+          oldHtml = btn.innerHTML;
+          btn.innerHTML = '<i data-lucide="loader-2" class="animate-spin"></i> 儲存中...';
+          lucide.createIcons();
+        }
+        
+        await setDoc(doc(db, basePath, docId), { year, semester, weeks }, { merge: true });
+        window.hasUnsavedAnnualChanges = false;
+
+        // 存檔時，同步更新「全域學期設定」
+        const settingsPath = `artifacts/${appId}/users/${currentUser.uid}/scheduleSettings`;
+        const newSettings = { academicYear: year, semester: semester };
+        if (schSettings.id) {
+          await updateDoc(doc(db, settingsPath, schSettings.id), newSettings);
+        } else {
+          await addDoc(collection(db, settingsPath), { ...schSettings, ...newSettings });
+        }
+        
+        if (btn) {
+          btn.innerHTML = '<i data-lucide="check-circle-2"></i> 儲存成功！';
+          btn.classList.add('bg-green-600/80');
+          lucide.createIcons();
+          setTimeout(() => { 
+            btn.innerHTML = oldHtml; 
+            btn.classList.remove('bg-green-600/80');
+            lucide.createIcons(); 
+          }, 2000);
+        }
+      } catch(error) {
+        handleSnapshotError(error);
+      }
+    };
+
+    // 新增每日重點事項至當週行事曆
+    window.addDailyEvent = (weekIndex, dateStr) => {
+      openPrompt(`請輸入 ${dateStr} 的重點事項：`, (content) => {
+        if (!content || content.trim() === '') return;
+        const textarea = document.getElementById(`annual-events-${weekIndex}`);
+        if (textarea) {
+          const existingText = textarea.value.trim();
+          const newEntry = `◎ ${dateStr} ${content}`;
+          textarea.value = existingText ? `${existingText}\n${newEntry}` : newEntry;
+          
+          textarea.classList.add('bg-white/20');
+          setTimeout(() => textarea.classList.remove('bg-white/20'), 500);
+
+          window.hasUnsavedAnnualChanges = true;
+          saveAnnual(); 
+        }
+      });
+    };
+
+
+    // =============== 模組 1: 學生管理 ===============
+    const renderStudents = () => {
+      document.getElementById('student-count').innerText = studentsData.length;
+      const tbody = document.getElementById('student-table-body');
+      
+      const sorted = [...studentsData].sort((a,b) => Number(a.seatNo) - Number(b.seatNo));
+      tbody.innerHTML = sorted.map(s => `
+        <tr class="border-b border-white/20 hover:bg-white/10">
+          <td class="p-2">${s.seatNo}</td><td class="p-2 font-bold">${s.name}</td><td class="p-2">${s.gender}</td>
+          <td class="p-2 text-red-200">${s.allergens || '無'}</td><td class="p-2">${s.emergencyContact}</td><td class="p-2">${s.emergencyPhone}</td>
+          <td class="p-2 flex justify-center gap-2">
+            <button onclick="editStudent('${s.id}')" class="text-yellow-300 hover:scale-110"><i data-lucide="pen-tool" class="w-5 h-5"></i></button>
+            <button onclick="deleteStudent('${s.id}')" class="text-red-400 hover:scale-110"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
+          </td>
+        </tr>
+      `).join('');
+
+      const borrowerSelect = document.getElementById('book-borrower');
+      borrowerSelect.innerHTML = `<option value="">選擇借出人員</option>` + sorted.map(s => `<option value="${s.name}">${s.name} (${s.seatNo})</option>`).join('');
+    };
+
+    window.handleStudentSubmit = async (e) => {
+      e.preventDefault();
+      if(!currentUser) return;
+      const basePath = `artifacts/${appId}/users/${currentUser.uid}/students`;
+      const data = {
+        seatNo: document.getElementById('stu-seatNo').value,
+        name: document.getElementById('stu-name').value,
+        gender: document.getElementById('stu-gender').value,
+        allergens: document.getElementById('stu-allergens').value,
+        emergencyContact: document.getElementById('stu-contact').value,
+        emergencyPhone: document.getElementById('stu-phone').value,
+      };
+      
+      const editId = document.getElementById('student-edit-id').value;
+      if (editId) {
+        await updateDoc(doc(db, basePath, editId), data);
+      } else {
+        await addDoc(collection(db, basePath), data);
+      }
+      resetStudentForm();
+    };
+
+    window.editStudent = (id) => {
+      const s = studentsData.find(x => x.id === id);
+      if(!s) return;
+      document.getElementById('student-edit-id').value = id;
+      document.getElementById('stu-seatNo').value = s.seatNo;
+      document.getElementById('stu-name').value = s.name;
+      document.getElementById('stu-gender').value = s.gender;
+      document.getElementById('stu-allergens').value = s.allergens || '';
+      document.getElementById('stu-contact').value = s.emergencyContact;
+      document.getElementById('stu-phone').value = s.emergencyPhone;
+      document.getElementById('btn-cancel-student').classList.remove('hidden-view');
+      document.getElementById('student-form-title').innerHTML = '<i data-lucide="pen-tool"></i> 編輯學生資料';
+      lucide.createIcons();
+    };
+
+    window.resetStudentForm = () => {
+      document.getElementById('form-student').reset();
+      document.getElementById('student-edit-id').value = '';
+      document.getElementById('btn-cancel-student').classList.add('hidden-view');
+      document.getElementById('student-form-title').innerHTML = '<i data-lucide="plus-circle"></i> 新增學生資料';
+      lucide.createIcons();
+    };
+
+    window.deleteStudent = async (id) => {
+      if(!currentUser) return;
+      await deleteDoc(doc(db, `artifacts/${appId}/users/${currentUser.uid}/students`, id));
+    };
+
+    // =============== 模組 2: 藏書管理 ===============
+    window.switchBookTab = (tab) => {
+      document.getElementById('book-tab-list').classList.toggle('hidden-view', tab !== 'list');
+      document.getElementById('book-tab-auto').classList.toggle('hidden-view', tab !== 'auto');
+      document.getElementById('tab-book-list').classList.toggle('bg-white/30', tab === 'list');
+      document.getElementById('tab-book-auto').classList.toggle('bg-white/30', tab === 'auto');
+    };
+
+    window.toggleBorrowFields = () => {
+      const isBorrowed = document.getElementById('book-isBorrowed').value;
+      const fields = document.getElementById('borrow-fields');
+      if(isBorrowed === '是') {
+        fields.classList.remove('hidden-view');
+        document.getElementById('book-borrower').setAttribute('required', 'true');
+        document.getElementById('book-borrowDate').setAttribute('required', 'true');
+      } else {
+        fields.classList.add('hidden-view');
+        document.getElementById('book-borrower').removeAttribute('required');
+        document.getElementById('book-borrowDate').removeAttribute('required');
+      }
+    };
+
+    const renderBooks = () => {
+      document.getElementById('book-count').innerText = booksData.length;
+      const tbody = document.getElementById('book-table-body');
+      
+      tbody.innerHTML = booksData.map(b => `
+        <tr class="border-b border-white/20 hover:bg-white/10">
+          <td class="p-2 font-bold text-yellow-200">${b.title}</td><td class="p-2">${b.author || ''}</td>
+          <td class="p-2"><span class="px-2 py-1 rounded text-xs ${b.isBorrowed==='是'?'bg-red-500/50':'bg-green-500/50'}">${b.isBorrowed === '是' ? '借出中' : '在館內'}</span></td>
+          <td class="p-2">${b.borrower || '-'}</td><td class="p-2">${b.borrowDate || '-'}</td>
+          <td class="p-2 flex gap-2">
+            ${b.isBorrowed === '是' ? `<button onclick="returnBook('${b.id}')" class="text-green-300 border border-green-300 px-2 rounded hover:bg-green-300/20 text-sm">歸還</button>` : ''}
+            <button onclick="deleteBook('${b.id}')" class="text-red-400 hover:scale-110"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
+          </td>
+        </tr>
+      `).join('');
+
+      const cboxArea = document.getElementById('auto-book-checkboxes');
+      cboxArea.innerHTML = booksData.map(b => `
+        <label class="flex items-center gap-2 mb-1 cursor-pointer hover:bg-white/10 p-1 rounded">
+          <input type="checkbox" value="${b.id}" class="auto-book-chk w-4 h-4 accent-green-600" />
+          <span class="truncate">${b.title}</span>
+        </label>
+      `).join('');
+    };
+
+    window.handleBookSubmit = async (e) => {
+      e.preventDefault();
+      if(!currentUser) return;
+      const isBorrowed = document.getElementById('book-isBorrowed').value;
+      const data = {
+        title: document.getElementById('book-title').value,
+        author: document.getElementById('book-author').value,
+        isBorrowed: isBorrowed,
+        borrower: isBorrowed === '是' ? document.getElementById('book-borrower').value : '',
+        borrowDate: isBorrowed === '是' ? document.getElementById('book-borrowDate').value : '',
+        returnDate: isBorrowed === '是' ? document.getElementById('book-returnDate').value : '',
+      };
+      await addDoc(collection(db, `artifacts/${appId}/users/${currentUser.uid}/books`), data);
+      document.getElementById('form-book').reset();
+      toggleBorrowFields();
+    };
+
+    window.returnBook = async (id) => {
+      if(!currentUser) return;
+      await updateDoc(doc(db, `artifacts/${appId}/users/${currentUser.uid}/books`, id), { isBorrowed: '否', borrower: '', borrowDate: '', returnDate: '' });
+    };
+
+    window.deleteBook = async (id) => {
+      if(!currentUser) return;
+      await deleteDoc(doc(db, `artifacts/${appId}/users/${currentUser.uid}/books`, id));
+    };
+
+    window.generateAutoArrange = () => {
+      const checkedBoxes = document.querySelectorAll('.auto-book-chk:checked');
+      if (checkedBoxes.length === 0 || studentsData.length === 0) return;
+      
+      const weeks = parseInt(document.getElementById('auto-weeks').value) || 1;
+      const selectedIds = Array.from(checkedBoxes).map(cb => cb.value);
+      const targetBooks = booksData.filter(b => selectedIds.includes(b.id));
+      const targetStudents = [...studentsData].sort((a,b) => Number(a.seatNo) - Number(b.seatNo));
+      
+      let html = '';
+      for (let w = 0; w < weeks; w++) {
+        html += `
+          <div class="border-2 border-white/30 p-4 rounded-lg bg-black/10">
+            <h3 class="text-lg font-bold mb-3 text-yellow-300 border-b border-dashed border-white/30 pb-2">第 ${w + 1} 週</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 text-sm">
+        `;
+        targetStudents.forEach((student, index) => {
+          let bookIndex = (index + w) % targetBooks.length;
+          html += `
+            <div class="bg-white/5 p-2 rounded flex flex-col">
+              <span class="font-bold text-green-200">${student.seatNo}號 ${student.name}</span>
+              <span class="truncate">📖 ${targetBooks[bookIndex]?.title || '無書可借'}</span>
+            </div>
+          `;
+        });
+        html += `</div></div>`;
+      }
+      document.getElementById('auto-arrange-results').innerHTML = html;
+    };
+
+    // =============== 模組 3: 每週排程與行事曆 ===============
+    
+    window.openPrompt = (title, callback) => {
+      document.getElementById('custom-prompt-title').innerText = title;
+      document.getElementById('custom-prompt-input').value = '';
+      document.getElementById('custom-prompt-modal').classList.remove('hidden-view');
+      document.getElementById('custom-prompt-input').focus();
+      promptCallback = callback;
+    };
+    window.closePrompt = () => {
+      document.getElementById('custom-prompt-modal').classList.add('hidden-view');
+      promptCallback = null;
+    };
+    window.submitPrompt = () => {
+      if(promptCallback) promptCallback(document.getElementById('custom-prompt-input').value);
+      closePrompt();
+    };
+
+    const renderSchedule = () => {
+      const weekDays = getWeekDays(schCurrentDate);
+      
+      viewingWeek = getViewingWeek(schCurrentDate, schSettings.academicYear, schSettings.semester);
+      
+      let currentLead = '未設定';
+      let currentCoLead = '未設定';
+      if(schSettings.leadTeacher) {
+        const isFirstT1 = schSettings.firstWeekLead === schSettings.leadTeacher;
+        const isOddWeek = viewingWeek % 2 !== 0;
+        currentLead = isFirstT1 ? (isOddWeek ? schSettings.leadTeacher : schSettings.coTeacher) 
+                                : (isOddWeek ? schSettings.coTeacher : schSettings.leadTeacher);
+        currentCoLead = currentLead === schSettings.leadTeacher ? schSettings.coTeacher : schSettings.leadTeacher;
+      }
+      
+      document.getElementById('sch-header-title').innerText = `${schSettings.academicYear} 學年度 ${schSettings.semester} - 第 ${viewingWeek} 週`;
+      document.getElementById('sch-lead-teacher').innerText = `👑 主教：${currentLead}`;
+      document.getElementById('sch-co-teacher').innerText = `🤝 協同：${currentCoLead}`;
+      document.getElementById('sch-week-range').innerText = `${formatDate(weekDays[0])} ~ ${formatDate(weekDays[6])}`;
+
+      const annualDocId = `${schSettings.academicYear}_${schSettings.semester}`;
+      const annualData = annualEventsData.find(d => d.id === annualDocId);
+      let currentWeekEvent = '';
+      
+      if (annualData && annualData.weeks && annualData.weeks[viewingWeek - 1]) {
+        const weekData = annualData.weeks[viewingWeek - 1];
+        if (typeof weekData === 'string') {
+          currentWeekEvent = weekData;
+        } else {
+          currentWeekEvent = weekData.events;
+          if(weekData.theme) currentWeekEvent += `\n【主題】：${weekData.theme}`;
+        }
+      }
+      document.getElementById('sch-weekly-event').value = currentWeekEvent;
+
+      const year = schCurrentDate.getFullYear();
+      const month = schCurrentDate.getMonth();
+      document.getElementById('mini-cal-title').innerText = `${year}年 ${month + 1}月`;
+      
+      const firstDay = new Date(year, month, 1).getDay();
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+      let mCalHtml = '';
+      for(let i=0; i<firstDay; i++) mCalHtml += `<div></div>`;
+      for(let d=1; d<=daysInMonth; d++) {
+        const isT = d === today.getDate() && month === today.getMonth() && year === today.getFullYear();
+        const isS = d === schCurrentDate.getDate() && month === schCurrentDate.getMonth();
+        let cls = "p-1 cursor-pointer rounded-full w-8 h-8 flex items-center justify-center mx-auto hover:bg-white/20 ";
+        if(isT) cls += "bg-red-500 text-white font-bold ";
+        else if(isS) cls += "border border-yellow-300 text-yellow-300 ";
+        mCalHtml += `<div onclick="setSchDate(${year}, ${month}, ${d})" class="${cls}">${d}</div>`;
+      }
+      document.getElementById('mini-cal-grid').innerHTML = mCalHtml;
+
+      const dayNames = ['日', '一', '二', '三', '四', '五', '六'];
+      let theadHtml = `<th class="border-2 border-white/30 p-2 w-16">時間</th>`;
+      weekDays.forEach(d => {
+        const isT = d.toDateString() === today.toDateString();
+        theadHtml += `<th class="border-2 border-white/30 p-2 w-1/7 ${isT ? 'bg-yellow-500/40 text-yellow-100' : 'bg-black/20'}">${d.getMonth()+1}/${d.getDate()} <br/> (${dayNames[d.getDay()]})</th>`;
+      });
+      document.getElementById('sch-grid-header').innerHTML = theadHtml;
+
+      let tbodyHtml = '';
+      [8,9,10,11,12,13,14,15,16,17].forEach(hour => {
+        tbodyHtml += `<tr><td class="border-2 border-white/30 p-2 text-center bg-black/10">${hour}:00</td>`;
+        weekDays.forEach(d => {
+          const dateStr = formatDate(d);
+          const entry = scheduleEntriesData.find(e => e.date === dateStr && e.hour === hour);
+          const isT = d.toDateString() === today.toDateString();
+          // 【核心修復】：安全注入排程資料，避免特殊符號導致 HTML 破壞
+          tbodyHtml += `<td id="sch-cell-${dateStr}-${hour}" onclick="handleCellClick('${dateStr}', ${hour})" class="border-2 border-white/30 p-2 h-16 cursor-pointer hover:bg-white/20 align-top text-sm transition-colors ${isT?'bg-yellow-500/10':''}"></td>`;
+        });
+        tbodyHtml += `</tr>`;
+      });
+      document.getElementById('sch-grid-body').innerHTML = tbodyHtml;
+
+      // 在表格渲染後安全地填入文字
+      [8,9,10,11,12,13,14,15,16,17].forEach(hour => {
+        weekDays.forEach(d => {
+          const dateStr = formatDate(d);
+          const entry = scheduleEntriesData.find(e => e.date === dateStr && e.hour === hour);
+          const tdEl = document.getElementById(`sch-cell-${dateStr}-${hour}`);
+          if (tdEl) tdEl.innerText = entry ? entry.content : '';
+        });
+      });
+    };
+
+    window.navWeek = (dir) => {
+      schCurrentDate.setDate(schCurrentDate.getDate() + (dir * 7));
+      localStorage.setItem('bearClass_schCurrentDate', schCurrentDate.toISOString()); // 記憶選擇日期
+      renderSchedule();
+    };
+
+    window.navMiniCal = (dir) => {
+      schCurrentDate = new Date(schCurrentDate.getFullYear(), schCurrentDate.getMonth() + dir, 1);
+      localStorage.setItem('bearClass_schCurrentDate', schCurrentDate.toISOString());
+      renderSchedule();
+    };
+
+    window.setSchDate = (y, m, d) => {
+      schCurrentDate = new Date(y, m, d);
+      localStorage.setItem('bearClass_schCurrentDate', schCurrentDate.toISOString());
+      renderSchedule();
+    };
+
+    window.handleCellClick = (dateStr, hour) => {
+      openPrompt(`請輸入 ${dateStr} ${hour}:00 的課程內容:`, async (content) => {
+        if(!currentUser) return;
+        const exist = scheduleEntriesData.find(e => e.date === dateStr && e.hour === hour);
+        const basePath = `artifacts/${appId}/users/${currentUser.uid}/scheduleEntries`;
+        
+        try {
+          if (content.trim() === '') {
+            if (exist) await deleteDoc(doc(db, basePath, exist.id));
+          } else {
+            if (exist) await updateDoc(doc(db, basePath, exist.id), { content });
+            else await addDoc(collection(db, basePath), { date: dateStr, hour, content });
+          }
+        } catch(error) {
+          handleSnapshotError(error);
+        }
+      });
+    };
+
+    window.openLinkSettings = () => {
+      document.getElementById('set-link-year').value = schSettings.academicYear;
+      document.getElementById('set-link-semester').value = schSettings.semester;
+      document.getElementById('sch-link-modal').classList.remove('hidden-view');
+    };
+    window.closeLinkSettings = () => { document.getElementById('sch-link-modal').classList.add('hidden-view'); };
+    window.saveLinkSettings = async () => {
+      if(!currentUser) return;
+      const newData = {
+        academicYear: document.getElementById('set-link-year').value,
+        semester: document.getElementById('set-link-semester').value
+      };
+      await saveSettingsToDb(newData, window.closeLinkSettings);
+    };
+
+    window.openTeacherSettings = () => {
+      document.getElementById('set-teacher-lead').value = schSettings.leadTeacher;
+      document.getElementById('set-teacher-co').value = schSettings.coTeacher;
+      updateFirstLeadDropdown();
+      document.getElementById('set-teacher-firstLead').value = schSettings.firstWeekLead;
+      document.getElementById('sch-teacher-modal').classList.remove('hidden-view');
+    };
+    window.closeTeacherSettings = () => { document.getElementById('sch-teacher-modal').classList.add('hidden-view'); };
+    window.saveTeacherSettings = async () => {
+      if(!currentUser) return;
+      const newData = {
+        leadTeacher: document.getElementById('set-teacher-lead').value,
+        coTeacher: document.getElementById('set-teacher-co').value,
+        firstWeekLead: document.getElementById('set-teacher-firstLead').value
+      };
+      await saveSettingsToDb(newData, window.closeTeacherSettings);
+    };
+
+    window.updateFirstLeadDropdown = () => {
+      const lead = document.getElementById('set-teacher-lead').value || '教師 A';
+      const co = document.getElementById('set-teacher-co').value || '教師 B';
+      const select = document.getElementById('set-teacher-firstLead');
+      const currentVal = select.value;
+      
+      select.innerHTML = `<option value="${lead}">${lead}</option><option value="${co}">${co}</option>`;
+      if (currentVal === lead || currentVal === co) { select.value = currentVal; } else { select.value = lead; }
+    };
+
+    const saveSettingsToDb = async (newData, closeCallback) => {
+      const basePath = `artifacts/${appId}/users/${currentUser.uid}/scheduleSettings`;
+      try {
+        if(schSettings.id) {
+          await updateDoc(doc(db, basePath, schSettings.id), newData);
+        } else {
+          const defaultData = {
+            academicYear: schSettings.academicYear,
+            semester: schSettings.semester,
+            leadTeacher: schSettings.leadTeacher,
+            coTeacher: schSettings.coTeacher,
+            firstWeekLead: schSettings.firstWeekLead
+          };
+          await addDoc(collection(db, basePath), { ...defaultData, ...newData });
+        }
+        closeCallback();
+      } catch(error) {
+        handleSnapshotError(error);
+        closeCallback();
+      }
+    };
+
+    // =============== Firebase 驗證與資料綁定 ===============
+    
+    const handleSnapshotError = (error) => {
+      console.error("Firestore Snapshot Error:", error);
+      if (error.code === 'permission-denied') {
+        const errorEl = document.getElementById('db-error-message');
+        if (errorEl) errorEl.classList.remove('hidden-view');
+        
+        const loadingEl = document.getElementById('loading-screen');
+        if (loadingEl) loadingEl.classList.add('hidden-view');
+      }
+    };
+
+    const initAuth = async () => {
+      try {
+        await setPersistence(auth, browserLocalPersistence);
+
+        await auth.authStateReady();
+        if (auth.currentUser) return;
+
+        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+          try {
+            await signInWithCustomToken(auth, __initial_auth_token);
+          } catch (tokenError) {
+            console.warn("自訂 Token 驗證失敗，正在切換為匿名登入...", tokenError);
+            await signInAnonymously(auth);
+          }
+        } else {
+          await signInAnonymously(auth);
+        }
+      } catch (error) { 
+        console.error("Auth Error:", error); 
+        document.getElementById('loading-screen').innerHTML = "登入失敗 🐻<br><span class='text-sm mt-4'>請確認您的 Firebase Console 已啟用「匿名登入 (Anonymous)」功能！</span>";
+      }
+    };
+    
+    initAuth();
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+        currentUser = user;
+        const basePath = `artifacts/${appId}/users/${user.uid}`;
+        
+        onSnapshot(
+          collection(db, `${basePath}/students`), 
+          snap => {
+            studentsData = snap.docs.map(d => ({id: d.id, ...d.data()}));
+            if(currentView === 'students' || currentView === 'books') renderCurrentView();
+            
+            const loading = document.getElementById('loading-screen');
+            if (!loading.classList.contains('hidden-view')) {
+              loading.classList.add('hidden-view');
+              navigate(currentView);
+            }
+          }, 
+          handleSnapshotError
+        );
+        
+        onSnapshot(
+          collection(db, `${basePath}/books`), 
+          snap => {
+            booksData = snap.docs.map(d => ({id: d.id, ...d.data()}));
+            if(currentView === 'books') renderCurrentView();
+          },
+          handleSnapshotError
+        );
+
+        onSnapshot(
+          collection(db, `${basePath}/annualEvents`), 
+          snap => {
+            annualEventsData = snap.docs.map(d => ({id: d.id, ...d.data()}));
+            if(currentView === 'annual' && !window.hasUnsavedAnnualChanges) {
+               renderCurrentView();
+            } else if (currentView === 'schedule') {
+               renderCurrentView();
+            }
+          },
+          handleSnapshotError
+        );
+
+        onSnapshot(
+          collection(db, `${basePath}/scheduleSettings`), 
+          snap => {
+            if(snap.docs.length > 0) {
+              const d = snap.docs[0].data();
+              schSettings = { 
+                id: snap.docs[0].id, 
+                academicYear: d.academicYear || '114',
+                semester: d.semester || '下學期',
+                leadTeacher: d.leadTeacher || '大熊老師',
+                coTeacher: d.coTeacher || '兔兔老師',
+                firstWeekLead: d.firstWeekLead || '大熊老師'
+              };
+            }
+
+            const yrInput = document.getElementById('annual-year');
+            const semSelect = document.getElementById('annual-semester');
+            
+            if (yrInput && !window.hasUnsavedAnnualChanges) {
+              yrInput.value = schSettings.academicYear;
+              if (semSelect) semSelect.value = schSettings.semester;
+            }
+
+            if(currentView === 'schedule' || (currentView === 'annual' && !window.hasUnsavedAnnualChanges)) {
+               renderCurrentView();
+            }
+          },
+          handleSnapshotError
+        );
+
+        onSnapshot(
+          collection(db, `${basePath}/scheduleEntries`), 
+          snap => {
+            scheduleEntriesData = snap.docs.map(d => ({id: d.id, ...d.data()}));
+            if(currentView === 'schedule') renderCurrentView();
+          },
+          handleSnapshotError
+        );
+
+        setTimeout(() => { 
+          const loading = document.getElementById('loading-screen');
+          if (!loading.classList.contains('hidden-view')) {
+            loading.classList.add('hidden-view'); 
+            navigate(currentView); 
+          }
+        }, 1500);
+      }
+    });
+
+  </script>
+</body>
+</html>
