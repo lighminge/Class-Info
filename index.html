@@ -633,6 +633,7 @@ service cloud.firestore {
         localStorage.setItem('bearClass_geminiApiKey', trimmed);
         const inputs = document.querySelectorAll('input[id^="api-key-input"]');
         inputs.forEach(input => {
+             // 確保不會覆蓋掉正在打字的輸入框游標
              if (input.value !== trimmed && input !== document.activeElement) {
                  input.value = trimmed;
              }
@@ -924,10 +925,16 @@ service cloud.firestore {
             dateInput.value = new Date(today.getTime() - tzOffset).toISOString().split('T')[0];
         }
         
-        document.getElementById('att-academic-year').innerText = `${schSettings.academicYear}學年`;
+        // 取得目前點名簿下拉選單的學年 (如果沒有則初始化)
+        let filterYear = document.getElementById('att-academic-year').value;
+        const uniqueYears = [...new Set(studentsData.map(s => s.academicYear))].filter(y=>y).sort((a,b) => b-a);
+        if(!filterYear) {
+            filterYear = schSettings.academicYear || uniqueYears[0] || '114';
+            document.getElementById('att-academic-year').innerHTML = uniqueYears.map(y => `<option value="${y}" ${y===filterYear?'selected':''}>${y}學年</option>`).join('');
+        }
 
         const currentYearStudents = [...studentsData]
-            .filter(s => s.academicYear === schSettings.academicYear)
+            .filter(s => s.academicYear === filterYear)
             .sort((a,b) => Number(a.seatNo) - Number(b.seatNo));
             
         const currentList = document.getElementById('attendance-list');
@@ -940,6 +947,7 @@ service cloud.firestore {
         }
 
         // 只有在學生數量改變、資料被修改過，或是目前為空資料時才重新產生整個 HTML
+        // 以防止在打卡時畫面一直刷新重繪，導致選單閃爍
         if (window.forceRebuildAttendance || currentItemCount !== currentYearStudents.length || currentList.innerHTML.includes('正在讀取')) {
             let listHtml = '';
             currentYearStudents.forEach(s => {
@@ -1021,6 +1029,7 @@ service cloud.firestore {
         document.getElementById('att-sum-present').innerText = presentCount;
         document.getElementById('att-sum-leave').innerText = leaveCount;
         
+        // 渲染請假細節明細
         let breakdownHtml = '';
         if(sickList.length > 0) breakdownHtml += `<div class="text-[13px] text-red-200 mb-1">病假 ${sickList.length}人：${sickList.join('、')}</div>`;
         if(personalList.length > 0) breakdownHtml += `<div class="text-[13px] text-orange-200">事假 ${personalList.length}人：${personalList.join('、')}</div>`;
@@ -1039,12 +1048,14 @@ service cloud.firestore {
         const reasonEl = document.getElementById(`reason_${studentId}`);
         const reason = status === 'leave' ? reasonEl.value : '';
 
+        // 立即改變畫面的 Toggle 顯示
         const reasonContainer = document.getElementById(`leave-reason-${studentId}`);
         if (reasonContainer) {
             if (status === 'leave') reasonContainer.classList.remove('hidden');
             else reasonContainer.classList.add('hidden');
         }
 
+        // 立即改變畫面的名字顏色
         const nameSpan = document.getElementById(`att-name-${studentId}`);
         if (nameSpan) {
             nameSpan.className = `font-bold ${status==='leave'?'text-red-300':(status==='attend'?'text-green-200':'')}`;
@@ -1079,10 +1090,12 @@ service cloud.firestore {
         if(personalList.length > 0) breakdownHtml += `<div class="text-[13px] text-orange-200">事假 ${personalList.length}人：${personalList.join('、')}</div>`;
         document.getElementById('att-leave-breakdown').innerHTML = breakdownHtml;
 
+        // 準備儲存至資料庫
         const dayData = attendanceData.find(a => a.id === dateStr) || { records: {} };
         const newRecords = { ...dayData.records };
         newRecords[studentId] = { status, reason };
         
+        // 預先樂觀寫入本地快取陣列，防止重新刷新洗掉畫面
         if (!attendanceData.find(a => a.id === dateStr)) {
             attendanceData.push({ id: dateStr, date: dateStr, records: newRecords });
         } else {
@@ -1092,6 +1105,7 @@ service cloud.firestore {
         try {
             await setDoc(doc(db, "bear_attendance", dateStr), { date: dateStr, records: newRecords }, { merge: true });
             
+            // 顯示已儲存的小提示，增加使用者安心感
             const savedTag = document.getElementById(`att-saved-${studentId}`);
             if (savedTag) {
                 savedTag.classList.remove('opacity-0');
@@ -1099,6 +1113,7 @@ service cloud.firestore {
             }
             updateDailyCardAttendance();
 
+            // 自動跳轉到下一位學生
             if (status !== '') {
                 const currentIndex = currentYearStudents.findIndex(s => s.id === studentId);
                 if (currentIndex !== -1 && currentIndex + 1 < currentYearStudents.length) {
@@ -1115,14 +1130,15 @@ service cloud.firestore {
         }
     };
     
+    // 更新每日卡片的點名資訊 (不重新 render 整個區域)
     const updateDailyCardAttendance = () => {
         const weekDays = getWeekDays(schCurrentDate).slice(0, 5);
         const currentYearStudents = [...studentsData].filter(s => s.academicYear === schSettings.academicYear);
         const total = currentYearStudents.length;
         
         weekDays.forEach((d, index) => {
-             const dateStr = formatDate(d); 
-             const docId = dateStr.replace(/\//g, '-'); 
+             const dateStr = formatDate(d); // YYYY/MM/DD
+             const docId = dateStr.replace(/\//g, '-'); // YYYY-MM-DD
              
              const dayAtt = attendanceData.find(a => a.id === docId) || { records: {} };
              let presentCount = 0;
@@ -1188,6 +1204,7 @@ service cloud.firestore {
       if (currentView === 'books') renderBooks();
       if (currentView === 'schedule') {
           renderSchedule();
+          // 如果點名簿日曆沒有值，設定為今天並渲染
           const attDate = document.getElementById('attendance-date');
           if(!attDate.value) {
              const tzOffset = today.getTimezoneOffset() * 60000;
@@ -1216,6 +1233,7 @@ service cloud.firestore {
       }
     };
 
+    // 新增 parameter `fetchFromDb` 以決定是否覆蓋日期欄位
     window.renderAnnual = (fetchFromDb = false) => {
       const year = document.getElementById('annual-year').value || '114';
       const semester = document.getElementById('annual-semester').value || '下學期';
@@ -1234,6 +1252,7 @@ service cloud.firestore {
           if (dataObj && dataObj.startDate) {
               sdInput.value = dataObj.startDate;
           } else {
+              // 算好預設的星期一塞進去
               const defaultStart = getSemesterStartMonday(year, semester);
               const yyyy = defaultStart.getFullYear();
               const mm = String(defaultStart.getMonth() + 1).padStart(2, '0');
@@ -1249,6 +1268,7 @@ service cloud.firestore {
         savedWeeks = Array(21).fill({ events: '', theme: '', obj: '' });
       }
 
+      // 依據輸入框的日期來建立行事曆
       let startMonday = new Date(document.getElementById('annual-start-date').value);
       if(isNaN(startMonday)) startMonday = getSemesterStartMonday(year, semester);
       
@@ -1308,7 +1328,7 @@ service cloud.firestore {
         
         if (evEl) {
             evEl.value = savedData.events || '';
-            window.updateHighlights(index); 
+            window.updateHighlights(index); // 初次載入就根據文字進行螢光筆標記
         }
         if (thEl) thEl.value = savedData.theme || '';
         if (obEl) obEl.value = savedData.obj || '';
@@ -1846,6 +1866,7 @@ service cloud.firestore {
                   </div>
                   <textarea id="sch-act-${index}" class="schedule-textarea min-h-[80px]" oninput="window.hasUnsavedScheduleChanges=true" onblur="saveDailyDoc('${dateStr}', ${index})" placeholder="請輸入教學活動..."></textarea>
                   
+                  <!-- AI 學習指標區塊 (包含 Flexbox 排版與複製按鈕) -->
                   <div id="sch-ind-container-${index}" class="hidden mt-1 flex-col items-end gap-1">
                       <textarea id="sch-ind-${index}" class="schedule-textarea min-h-[60px] text-indigo-100 border-indigo-400/50 bg-indigo-900/30 text-sm placeholder-indigo-300/50 w-full" oninput="window.hasUnsavedScheduleChanges=true" onblur="saveDailyDoc('${dateStr}', ${index})" placeholder="AI 學習指標參考..."></textarea>
                       <button onclick="copyText('sch-ind-${index}')" class="text-xs bg-indigo-500/70 hover:bg-indigo-400 text-white px-2 py-1 rounded shadow flex items-center gap-1 transition-colors border border-indigo-400"><i data-lucide="copy" class="w-3 h-3"></i> 複製內容</button>
@@ -1856,8 +1877,17 @@ service cloud.firestore {
                   <textarea id="sch-motor-${index}" class="schedule-textarea min-h-[60px]" oninput="window.hasUnsavedScheduleChanges=true" onblur="saveDailyDoc('${dateStr}', ${index})" placeholder="請輸入大肌肉活動..."></textarea>
               </div>
               <div class="flex flex-col gap-1.5">
-                  <label class="text-sm font-bold text-yellow-200">💭 教學省思</label>
+                  <div class="flex justify-between items-end">
+                      <label class="text-sm font-bold text-yellow-200">💭 教學省思</label>
+                      <button onclick="analyzeReflectionIndicators(${index}, '${dateStr}')" id="btn-ai-ref-${index}" class="text-xs bg-indigo-600/80 hover:bg-indigo-500 border border-indigo-400 rounded px-2 py-0.5 text-white flex items-center gap-1 transition-colors shadow-lg"><i data-lucide="sparkles" class="w-3 h-3"></i> AI 學習指標</button>
+                  </div>
                   <textarea id="sch-ref-${index}" class="schedule-textarea min-h-[60px]" oninput="window.hasUnsavedScheduleChanges=true" onblur="saveDailyDoc('${dateStr}', ${index})" placeholder="請輸入教學省思..."></textarea>
+                  
+                  <!-- AI 學習指標區塊 (教學省思用) -->
+                  <div id="sch-ref-ind-container-${index}" class="hidden mt-1 flex-col items-end gap-1">
+                      <textarea id="sch-ref-ind-${index}" class="schedule-textarea min-h-[60px] text-indigo-100 border-indigo-400/50 bg-indigo-900/30 text-sm placeholder-indigo-300/50 w-full" oninput="window.hasUnsavedScheduleChanges=true" onblur="saveDailyDoc('${dateStr}', ${index})" placeholder="AI 學習指標參考..."></textarea>
+                      <button onclick="copyText('sch-ref-ind-${index}')" class="text-xs bg-indigo-500/70 hover:bg-indigo-400 text-white px-2 py-1 rounded shadow flex items-center gap-1 transition-colors border border-indigo-400"><i data-lucide="copy" class="w-3 h-3"></i> 複製內容</button>
+                  </div>
               </div>
               <div class="flex flex-col gap-1.5">
                   <label class="text-sm font-bold text-yellow-200">📝 軼事記錄</label>
@@ -1896,6 +1926,14 @@ service cloud.firestore {
         
         const refEl = document.getElementById(`sch-ref-${index}`);
         if(refEl) refEl.value = entry.reflection || '';
+
+        const refIndEl = document.getElementById(`sch-ref-ind-${index}`);
+        const refIndContainer = document.getElementById(`sch-ref-ind-container-${index}`);
+        if(refIndEl && refIndContainer) {
+            refIndEl.value = entry.refIndicators || '';
+            if(entry.refIndicators) refIndContainer.classList.remove('hidden');
+            else refIndContainer.classList.add('hidden');
+        }
         
         const aneEl = document.getElementById(`sch-ane-${index}`);
         if(aneEl) aneEl.value = entry.anecdote || '';
@@ -1941,14 +1979,6 @@ service cloud.firestore {
             return;
         }
 
-        let activeKey = localStorage.getItem('bearClass_geminiApiKey');
-        if (!activeKey && apiKey) activeKey = apiKey; 
-
-        if (!activeKey || activeKey.trim() === '') {
-            window.showAlert('⚠️ 請先在上方欄位貼上您的 Google Gemini API Key 才能使用 AI 功能喔！');
-            return; 
-        }
-
         const btn = document.getElementById(`btn-ai-${index}`);
         const oldHtml = btn.innerHTML;
         btn.innerHTML = '<i data-lucide="loader-2" class="w-3 h-3 animate-spin"></i> 分析中...';
@@ -1986,6 +2016,59 @@ service cloud.firestore {
         }
     };
 
+    // AI 學習指標分析 (教學省思專用)
+    window.analyzeReflectionIndicators = async (index, dateStr) => {
+        const actText = document.getElementById(`sch-ref-${index}`).value;
+        if (!actText || actText.trim() === '') {
+            window.showAlert('⚠️ 請先輸入「教學省思」的內容，AI 才能幫您分析學習指標喔！');
+            return;
+        }
+
+        let activeKey = localStorage.getItem('bearClass_geminiApiKey');
+        if (!activeKey && apiKey) activeKey = apiKey; 
+
+        if (!activeKey || activeKey.trim() === '') {
+            window.showAlert('⚠️ 請先在上方欄位貼上您的 Google Gemini API Key 才能使用 AI 功能喔！');
+            return; 
+        }
+
+        const btn = document.getElementById(`btn-ai-ref-${index}`);
+        const oldHtml = btn.innerHTML;
+        btn.innerHTML = '<i data-lucide="loader-2" class="w-3 h-3 animate-spin"></i> 分析中...';
+        btn.disabled = true;
+        lucide.createIcons();
+
+        try {
+            const promptText = `你是一個臺灣幼教專家。請根據以下幼兒園的「教學省思」內容，自動比對並推薦對應的「幼兒園教保活動課程大綱（六大領域：身體動作、認知、語文、社會、情緒、美感）」的「學習指標」。\n\n非常重要：學習指標的編碼格式，第二階的內容一定是「幼」這個字（例如：身-幼-1-1-1、認-幼-2-1-1）。請絕對不要產生沒有「幼」字的編碼！\n\n請簡明扼要地列出2~3個最相關的指標，直接輸出純文字即可，不需Markdown格式。\n\n教學省思內容：\n${actText}`;
+            
+            const resultText = await callGemini(promptText, false);
+            
+            const indEl = document.getElementById(`sch-ref-ind-${index}`);
+            const indContainer = document.getElementById(`sch-ref-ind-container-${index}`);
+            indEl.value = resultText.trim();
+            indContainer.classList.remove('hidden');
+            
+            window.hasUnsavedScheduleChanges = true;
+            saveDailyDoc(dateStr, index);
+
+        } catch (e) {
+            console.error("AI Indicator Error:", e);
+            if (e.message === 'API_KEY_INVALID') {
+                window.showAlert('❌ AI 分析失敗！您的 API 金鑰無效或沒有權限，請確認上方的金鑰輸入正確。');
+            } else if (e.message === 'MISSING_API_KEY') {
+                window.showAlert('⚠️ 請先在上方欄位貼上您的 Google Gemini API Key 才能使用 AI 功能喔！');
+            } else if (e.message === 'QUOTA_EXCEEDED') {
+                window.showAlert('⏳ 免費額度限制 (Quota Exceeded)！<br>您呼叫 AI 的頻率太快了，請「等待約 1 分鐘」後再試一次。');
+            } else {
+                window.showAlert(`❌ 分析失敗！<br>錯誤訊息：${e.message}<br>請稍後再試。`);
+            }
+        } finally {
+            btn.innerHTML = oldHtml;
+            btn.disabled = false;
+            lucide.createIcons();
+        }
+    };
+
     window.saveDailyDoc = async (dateStr, index) => {
       if(!currentUser) return;
       const docId = dateStr.replace(/\//g, '-');
@@ -1994,6 +2077,7 @@ service cloud.firestore {
       if (!actEl) return;
 
       const indEl = document.getElementById(`sch-ind-${index}`);
+      const refIndEl = document.getElementById(`sch-ref-ind-${index}`);
 
       const data = {
           date: dateStr,
@@ -2002,6 +2086,7 @@ service cloud.firestore {
           indicators: indEl ? indEl.value : '',
           motor: document.getElementById(`sch-motor-${index}`).value,
           reflection: document.getElementById(`sch-ref-${index}`).value,
+          refIndicators: refIndEl ? refIndEl.value : '',
           anecdote: document.getElementById(`sch-ane-${index}`).value,
           communication: document.getElementById(`sch-com-${index}`).value
       };
@@ -2083,6 +2168,7 @@ service cloud.firestore {
           const pageBreak = index > 0 ? '<div style="page-break-before: always;"></div><br clear="all" style="page-break-before:always; mso-break-type:page-break" />' : '';
           
           const indHtml = entry.indicators ? `<br><br><span style="color:#4f46e5; font-size:14px; font-weight:bold;">[AI 學習指標參考]</span><br><span style="color:#4f46e5; font-size:13px;">${formatText(entry.indicators)}</span>` : '';
+          const refIndHtml = entry.refIndicators ? `<br><br><span style="color:#4f46e5; font-size:14px; font-weight:bold;">[AI 省思指標參考]</span><br><span style="color:#4f46e5; font-size:13px;">${formatText(entry.refIndicators)}</span>` : '';
 
           htmlContent += `
           ${pageBreak}
@@ -2094,7 +2180,7 @@ service cloud.firestore {
               <table>
                   <tr><th>📌 教學活動</th><td>${formatText(entry.activities)}${indHtml}</td></tr>
                   <tr><th>💪 大肌肉運動</th><td>${formatText(entry.motor)}</td></tr>
-                  <tr><th>💭 教學省思</th><td>${formatText(entry.reflection)}</td></tr>
+                  <tr><th>💭 教學省思</th><td>${formatText(entry.reflection)}${refIndHtml}</td></tr>
                   <tr><th>📝 軼事記錄</th><td>${formatText(entry.anecdote)}</td></tr>
                   <tr><th>🤝 親師溝通</th><td>${formatText(entry.communication)}</td></tr>
               </table>
@@ -2243,14 +2329,7 @@ service cloud.firestore {
       if (user) {
         currentUser = user;
         
-        // 載入儲存的 API Key 並顯示在輸入框中
-        const savedKey = localStorage.getItem('bearClass_geminiApiKey') || '';
-        if (savedKey) {
-            setTimeout(() => {
-                const inputs = document.querySelectorAll('input[id^="api-key-input"]');
-                inputs.forEach(input => input.value = savedKey);
-            }, 500);
-        }
+        // 載入儲存的 API Key 並顯示在輸入框中 (已移除)
 
         onSnapshot(
           collection(db, "bear_students"), 
