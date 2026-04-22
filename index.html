@@ -206,6 +206,13 @@ service cloud.firestore {
 
     <!-- 視圖 5: 學校年度行事曆 -->
     <div id="view-annual" class="max-w-[1400px] mx-auto space-y-6 hidden-view">
+      <!-- AI 金鑰設定區 -->
+      <div class="chalk-box flex items-center gap-3 py-2 px-4">
+        <label class="text-sm font-bold text-yellow-200 flex items-center gap-1"><i data-lucide="key" class="w-4 h-4"></i> AI 金鑰 (API Key)：</label>
+        <input type="password" id="api-key-input-annual" class="chalk-input flex-1 text-sm bg-black/10" placeholder="請貼上您的 Google Gemini API Key 以啟用 AI 檔案解析..." onchange="updateApiKey(this.value)">
+        <button onclick="toggleApiKeyVisibility('api-key-input-annual')" class="text-white/50 hover:text-white" title="顯示/隱藏"><i data-lucide="eye" class="w-4 h-4"></i></button>
+      </div>
+
       <div class="chalk-box flex flex-wrap gap-6 items-end justify-between relative overflow-hidden">
         <div class="flex flex-wrap gap-4 items-end relative z-10">
           <div>
@@ -406,6 +413,13 @@ service cloud.firestore {
 
     <!-- 視圖 4: 行事曆與排程 -->
     <div id="view-schedule" class="flex flex-col gap-6 hidden-view max-w-[1600px] mx-auto w-full">
+      <!-- AI 金鑰設定區 -->
+      <div class="chalk-box flex items-center gap-3 py-2 px-4">
+        <label class="text-sm font-bold text-yellow-200 flex items-center gap-1"><i data-lucide="key" class="w-4 h-4"></i> AI 金鑰 (API Key)：</label>
+        <input type="password" id="api-key-input-schedule" class="chalk-input flex-1 text-sm bg-black/10" placeholder="請貼上您的 Google Gemini API Key 以啟用 AI 學習指標分析..." onchange="updateApiKey(this.value)">
+        <button onclick="toggleApiKeyVisibility('api-key-input-schedule')" class="text-white/50 hover:text-white" title="顯示/隱藏"><i data-lucide="eye" class="w-4 h-4"></i></button>
+      </div>
+
       <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
         <!-- 迷你月曆 -->
         <div class="chalk-box lg:col-span-1 flex flex-col items-center">
@@ -612,6 +626,26 @@ service cloud.firestore {
     }
     let viewingWeek = 1;
     let promptCallback = null;
+
+    // AI 金鑰同步與顯示邏輯
+    window.updateApiKey = (val) => {
+        const trimmed = val.trim();
+        localStorage.setItem('bearClass_geminiApiKey', trimmed);
+        const inputs = document.querySelectorAll('input[id^="api-key-input"]');
+        inputs.forEach(input => input.value = trimmed);
+    };
+
+    window.toggleApiKeyVisibility = (id) => {
+        const input = document.getElementById(id);
+        if (input) {
+            if (input.type === 'password') {
+                input.type = 'text';
+                setTimeout(() => { if(input) input.type = 'password'; }, 3000); // 3秒後自動隱藏，增加安全性
+            } else {
+                input.type = 'password';
+            }
+        }
+    };
 
     // 複製文字功能
     window.copyText = (elementId) => {
@@ -1247,19 +1281,13 @@ service cloud.firestore {
         const file = event.target.files[0];
         if (!file) return;
 
-        let activeKey = apiKey;
-        if (!activeKey) {
-            activeKey = localStorage.getItem('bearClass_geminiApiKey');
-            if (!activeKey) {
-                const userInput = prompt("請輸入您的 Google Gemini API Key 以啟用 AI 功能：\n(若在 Github 等外部網站使用，需自備 API 金鑰，此金鑰僅會儲存於您的瀏覽器中)");
-                if (userInput && userInput.trim() !== "") {
-                    activeKey = userInput.trim();
-                    localStorage.setItem('bearClass_geminiApiKey', activeKey);
-                } else {
-                    event.target.value = ''; 
-                    return; 
-                }
-            }
+        let activeKey = localStorage.getItem('bearClass_geminiApiKey');
+        if (!activeKey && apiKey) activeKey = apiKey; 
+
+        if (!activeKey || activeKey.trim() === '') {
+            window.showAlert('⚠️ 請先在上方欄位貼上您的 Google Gemini API Key 才能使用 AI 功能喔！');
+            event.target.value = ''; 
+            return; 
         }
 
         const loadingScreen = document.getElementById('loading-screen');
@@ -1869,18 +1897,12 @@ service cloud.firestore {
             return;
         }
 
-        let activeKey = apiKey;
-        if (!activeKey) {
-            activeKey = localStorage.getItem('bearClass_geminiApiKey');
-            if (!activeKey) {
-                const userInput = prompt("請輸入您的 Google Gemini API Key 以啟用 AI 功能：\n(若在 Github 等外部網站使用，需自備 API 金鑰，此金鑰僅會儲存於您的瀏覽器中)");
-                if (userInput && userInput.trim() !== "") {
-                    activeKey = userInput.trim();
-                    localStorage.setItem('bearClass_geminiApiKey', activeKey);
-                } else {
-                    return; 
-                }
-            }
+        let activeKey = localStorage.getItem('bearClass_geminiApiKey');
+        if (!activeKey && apiKey) activeKey = apiKey; 
+
+        if (!activeKey || activeKey.trim() === '') {
+            window.showAlert('⚠️ 請先在上方欄位貼上您的 Google Gemini API Key 才能使用 AI 功能喔！');
+            return; 
         }
 
         const btn = document.getElementById(`btn-ai-${index}`);
@@ -2199,6 +2221,15 @@ service cloud.firestore {
       if (user) {
         currentUser = user;
         
+        // 載入儲存的 API Key 並顯示在輸入框中
+        const savedKey = localStorage.getItem('bearClass_geminiApiKey') || '';
+        if (savedKey) {
+            setTimeout(() => {
+                const inputs = document.querySelectorAll('input[id^="api-key-input"]');
+                inputs.forEach(input => input.value = savedKey);
+            }, 500);
+        }
+
         onSnapshot(
           collection(db, "bear_students"), 
           snap => {
