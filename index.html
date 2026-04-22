@@ -21,6 +21,8 @@
       min-height: 100vh;
       display: flex;
       flex-direction: column;
+      overflow-x: hidden;
+      scroll-behavior: smooth; /* 加入平滑捲動 */
     }
     
     /* 黑板風格共用 Class */
@@ -36,7 +38,7 @@
     .hidden-view { display: none !important; }
     
     /* 日期輸入框的圖示反白 */
-    input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(1); }
+    input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(1); cursor: pointer; }
 
     /* 年度行事曆專用表格樣式 */
     .annual-table th, .annual-table td {
@@ -55,6 +57,30 @@
       padding: 0.25rem;
     }
     .annual-table textarea:focus { background-color: rgba(255,255,255,0.1); border-radius: 4px; }
+
+    /* 排程行事曆專用輸入框樣式 */
+    .schedule-textarea {
+      width: 100%;
+      background-color: rgba(0, 0, 0, 0.15);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      border-radius: 0.5rem;
+      padding: 0.5rem;
+      color: white;
+      outline: none;
+      transition: all 0.2s;
+      resize: vertical;
+    }
+    .schedule-textarea:focus {
+      background-color: rgba(0, 0, 0, 0.3);
+      border-color: #fde047;
+    }
+    .schedule-textarea::placeholder { color: rgba(255, 255, 255, 0.3); }
+    
+    /* 自訂捲軸 */
+    .custom-scrollbar::-webkit-scrollbar { height: 8px; width: 8px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.1); border-radius: 4px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.4); border-radius: 4px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.6); }
   </style>
 </head>
 <body class="p-4 md:p-8">
@@ -82,6 +108,39 @@ service cloud.firestore {
     <button onclick="document.getElementById('db-error-message').classList.add('hidden-view')" class="mt-4 text-sm bg-white text-red-600 px-4 py-1.5 rounded-full hover:bg-gray-200">我知道了，先關閉提示</button>
   </div>
 
+  <!-- 【左側浮動工具】點名簿 Drawer -->
+  <div id="attendance-drawer" class="fixed left-0 top-[15%] bottom-10 w-80 bg-[#1e442d] border-r-4 border-y-4 border-dashed border-white/50 rounded-r-2xl transform -translate-x-full transition-transform z-[60] flex flex-col shadow-[15px_0_30px_rgba(0,0,0,0.5)]">
+    <button onclick="toggleAttendance()" class="absolute -right-12 top-10 bg-yellow-500 hover:bg-yellow-400 text-black p-2 rounded-r-xl shadow-lg font-black tracking-widest border-y-2 border-r-2 border-white/50 transition-colors" style="writing-mode: vertical-rl; text-orientation: upright; font-size: 1.1rem; padding-block: 1rem;">
+      點名簿
+    </button>
+    <div class="p-5 flex-1 flex flex-col h-full">
+      <h2 class="text-2xl font-bold text-yellow-300 border-b-2 border-dashed border-white/30 pb-3 flex items-center justify-between gap-2">
+        <div class="flex items-center gap-2"><i data-lucide="clipboard-check"></i> 班級點名簿</div>
+        <!-- 顯示當前學年 -->
+        <span id="att-academic-year" class="text-sm bg-yellow-600/50 px-2 py-1 rounded text-white tracking-normal font-normal">--學年</span>
+      </h2>
+      <div class="mt-4 mb-3">
+        <label class="text-xs text-yellow-100 font-bold mb-1 block">選擇點名日期：</label>
+        <div class="flex items-center gap-2">
+          <!-- 左右箭頭切換日期 -->
+          <button onclick="navAttendanceDate(-1)" class="chalk-btn p-1 border-white/50 hover:text-yellow-300 transition-colors"><i data-lucide="chevron-left" class="w-5 h-5"></i></button>
+          <input type="date" id="attendance-date" class="chalk-input flex-1 bg-black/20 rounded px-2 text-center" onchange="renderAttendance()">
+          <button onclick="navAttendanceDate(1)" class="chalk-btn p-1 border-white/50 hover:text-yellow-300 transition-colors"><i data-lucide="chevron-right" class="w-5 h-5"></i></button>
+        </div>
+      </div>
+      <div id="attendance-summary" class="bg-black/30 p-3 rounded-lg border border-white/20 text-center mb-4 font-bold grid grid-cols-3 gap-1 shadow-inner">
+         <div class="flex flex-col"><span class="text-xs text-white/70">應到</span><span class="text-lg" id="att-sum-total">0</span></div>
+         <div class="flex flex-col border-l border-white/20"><span class="text-xs text-green-300">出席</span><span class="text-lg text-green-300" id="att-sum-present">0</span></div>
+         <div class="flex flex-col border-l border-white/20"><span class="text-xs text-red-300">請假</span><span class="text-lg text-red-300" id="att-sum-leave">0</span></div>
+      </div>
+      <div class="flex-1 overflow-y-auto custom-scrollbar pr-2">
+         <div id="attendance-list" class="flex flex-col gap-3 pb-4">
+            <!-- 點名列表動態產生 -->
+         </div>
+      </div>
+    </div>
+  </div>
+
   <!-- 標頭 Header -->
   <header class="flex flex-col md:flex-row justify-between items-center mb-8 border-b-4 border-white/50 pb-4 border-dashed">
     <div class="flex items-center gap-3 cursor-pointer" onclick="navigate('home')">
@@ -96,9 +155,10 @@ service cloud.firestore {
           <div id="header-month" class="bg-red-600 w-full text-center text-xs py-0.5 text-white font-bold border-b border-white">月</div>
           <div id="header-date" class="bg-white w-full h-full flex items-center justify-center text-red-900 font-bold text-2xl">00</div>
         </div>
-        <div class="flex flex-col text-center w-12">
+        <div class="flex flex-col items-center justify-center text-center w-16">
           <div id="weather-icon" class="text-3xl flex justify-center"><i data-lucide="sun" class="text-yellow-300 w-8 h-8"></i></div>
-          <span id="weather-temp" class="text-sm mt-1">--°C</span>
+          <span id="weather-temp" class="text-sm mt-1 font-bold">--°C</span>
+          <span id="weather-desc" class="text-sm text-yellow-100 font-bold tracking-widest mt-0.5">晴朗</span>
         </div>
       </div>
       
@@ -123,7 +183,7 @@ service cloud.firestore {
       <div onclick="navigate('schedule')" class="chalk-box flex flex-col items-center text-center cursor-pointer hover:-translate-y-2 hover:shadow-2xl transition-transform group">
         <div class="text-yellow-300 group-hover:scale-110 transition-transform mb-4"><i data-lucide="calendar" class="w-12 h-12"></i></div>
         <h2 class="text-2xl font-bold mb-2 tracking-wider">每週排程行事曆</h2>
-        <p class="text-green-100 text-sm">每週課程細部安排、教師輪值表</p>
+        <p class="text-green-100 text-sm">每週每日紀錄、教師輪值表</p>
         <div class="mt-auto pt-6 text-2xl">🐾</div>
       </div>
       <div onclick="navigate('books')" class="chalk-box flex flex-col items-center text-center cursor-pointer hover:-translate-y-2 hover:shadow-2xl transition-transform group">
@@ -163,7 +223,7 @@ service cloud.firestore {
         </div>
       </div>
 
-      <div class="chalk-box overflow-x-auto">
+      <div class="chalk-box overflow-x-auto custom-scrollbar">
         <h2 class="text-2xl font-bold mb-4 flex items-center justify-center gap-2 border-b-2 border-dashed border-white/30 pb-4 text-center">
           <span id="annual-title-display" class="text-yellow-300 tracking-wider">臺中市某某幼兒園 114 學年度 第 2 學期</span><br>教學活動暨行事曆【教師版】
         </h2>
@@ -193,10 +253,20 @@ service cloud.firestore {
 
     <!-- 視圖 2: 學生管理 -->
     <div id="view-students" class="max-w-5xl mx-auto space-y-8 hidden-view">
-      <div class="chalk-box">
+      <!-- 學生表單區塊加入了過渡動畫與 ID -->
+      <div class="chalk-box transition-all duration-500 ease-in-out" id="student-form-wrapper">
         <h2 id="student-form-title" class="text-2xl font-bold mb-4 flex items-center gap-2"><i data-lucide="plus-circle"></i> 新增學生資料</h2>
         <form id="form-student" onsubmit="handleStudentSubmit(event)" class="grid grid-cols-1 md:grid-cols-3 gap-4">
           <input type="hidden" id="student-edit-id" value="">
+          <select required id="stu-year" class="chalk-input text-black bg-white" title="就讀學年">
+            <option value="112">112學年</option>
+            <option value="113">113學年</option>
+            <option value="114" selected>114學年</option>
+            <option value="115">115學年</option>
+            <option value="116">116學年</option>
+            <option value="117">117學年</option>
+            <option value="118">118學年</option>
+          </select>
           <input required type="number" id="stu-seatNo" placeholder="座號" class="chalk-input">
           <input required type="text" id="stu-name" placeholder="姓名" class="chalk-input">
           <select id="stu-gender" class="chalk-input text-black bg-white">
@@ -204,8 +274,8 @@ service cloud.firestore {
             <option value="女">女</option>
           </select>
           <input type="text" id="stu-allergens" placeholder="過敏原 (無則免填)" class="chalk-input">
-          <input required type="text" id="stu-contact" placeholder="緊急聯絡人" class="chalk-input">
-          <input required type="text" id="stu-phone" placeholder="緊急聯絡電話" class="chalk-input">
+          <input type="text" id="stu-contact" placeholder="緊急聯絡人 (非必填)" class="chalk-input">
+          <input type="text" id="stu-phone" placeholder="緊急聯絡電話 (非必填)" class="chalk-input">
           <div class="md:col-span-3 flex justify-end gap-2 mt-2">
             <button type="button" id="btn-cancel-student" onclick="resetStudentForm()" class="chalk-btn hidden-view">取消</button>
             <button type="submit" class="chalk-btn bg-yellow-600/50">儲存資料</button>
@@ -217,7 +287,7 @@ service cloud.firestore {
         <table class="w-full text-left border-collapse">
           <thead>
             <tr class="border-b-2 border-white/50">
-              <th class="p-2">座號</th><th class="p-2">姓名</th><th class="p-2">性別</th>
+              <th class="p-2">就讀學年</th><th class="p-2">座號</th><th class="p-2">姓名</th><th class="p-2">性別</th>
               <th class="p-2 text-red-200">過敏原</th><th class="p-2">聯絡人</th><th class="p-2">聯絡電話</th>
               <th class="p-2 text-center">操作</th>
             </tr>
@@ -303,7 +373,7 @@ service cloud.firestore {
     </div>
 
     <!-- 視圖 4: 行事曆與排程 -->
-    <div id="view-schedule" class="flex flex-col gap-6 hidden-view">
+    <div id="view-schedule" class="flex flex-col gap-6 hidden-view max-w-[1600px] mx-auto w-full">
       <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
         <!-- 迷你月曆 -->
         <div class="chalk-box lg:col-span-1 flex flex-col items-center">
@@ -324,7 +394,7 @@ service cloud.firestore {
 
         <!-- 學期資訊與當週重點 -->
         <div class="chalk-box lg:col-span-3 relative">
-          <div class="absolute top-4 right-4 flex gap-3">
+          <div class="absolute top-4 right-4 flex gap-3 z-10">
             <button onclick="openLinkSettings()" class="text-white/50 hover:text-yellow-300 transition-colors" title="行事曆關聯設定">
               <i data-lucide="link" class="w-5 h-5"></i>
             </button>
@@ -341,34 +411,37 @@ service cloud.firestore {
               </div>
             </div>
             <div class="bg-white/10 p-3 rounded-lg border border-dashed border-white/50 relative">
-              <button onclick="navigate('annual')" class="absolute top-2 right-2 text-xs bg-white/20 hover:bg-white/40 px-2 py-1 rounded transition-colors text-white">
+              <button onclick="navigate('annual')" class="absolute top-2 right-2 text-xs bg-white/20 hover:bg-white/40 px-2 py-1 rounded transition-colors text-white z-10">
                 前往「年度行事曆」編輯
               </button>
-              <h3 class="font-bold text-green-200 mb-1">📝 本週學校重點事項 (與主題)：</h3>
+              <h3 class="font-bold text-green-200 mb-1">📝 本週學校重點事項：</h3>
               <textarea id="sch-weekly-event" readonly class="w-full bg-transparent outline-none text-white placeholder-white/40 resize-none cursor-default font-bold" rows="2" placeholder="尚無重點事項 (請至首頁「學校年度行事曆」設定)"></textarea>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- 每週行事曆 Grid -->
+      <!-- 每週行事曆 Grid (改為獨立每日輸入區塊) -->
       <div class="chalk-box">
-        <div class="flex justify-between items-center mb-4">
+        <div class="flex flex-wrap gap-4 justify-between items-center mb-4">
           <button onclick="navWeek(-1)" class="chalk-btn"><i data-lucide="chevron-left" class="w-5 h-5"></i> 上一週</button>
-          <h2 id="sch-week-range" class="text-xl font-bold text-center"></h2>
-          <button onclick="navWeek(1)" class="chalk-btn">下一週 <i data-lucide="chevron-right" class="w-5 h-5"></i></button>
+          <h2 id="sch-week-range" class="text-xl font-bold text-center flex-1"></h2>
+          <div class="flex gap-2">
+            <button onclick="navWeek(1)" class="chalk-btn">下一週 <i data-lucide="chevron-right" class="w-5 h-5"></i></button>
+          </div>
         </div>
-        <div class="overflow-x-auto">
-          <table class="w-full border-collapse min-w-[800px]">
-            <thead>
-              <tr id="sch-grid-header">
-                <!-- 動態產生星期標題 -->
-              </tr>
-            </thead>
-            <tbody id="sch-grid-body">
-              <!-- 動態產生時段與格子 -->
-            </tbody>
-          </table>
+        
+        <!-- 當週主題顯示 -->
+        <div id="sch-weekly-theme-display" class="flex-col md:flex-row justify-center items-center gap-4 mb-6 hidden">
+          <span class="text-2xl md:text-3xl font-black text-orange-300 bg-black/20 px-8 py-3 rounded-full border-2 border-orange-400 shadow-[0_0_15px_rgba(251,146,60,0.5)] tracking-widest inline-block" id="sch-theme-text"></span>
+          <button onclick="exportWeeklyToWord()" class="chalk-btn bg-blue-600/70 hover:bg-blue-500/80 transition-all shadow-lg text-sm md:text-base px-4 py-2 flex items-center gap-2">
+            <i data-lucide="file-text" class="w-5 h-5"></i> 匯出本週紀錄 (Word)
+          </button>
+        </div>
+
+        <!-- 每日卡片區 (週一至週五) -->
+        <div id="sch-days-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 pb-6 pt-2 items-start">
+          <!-- JS 動態產生每日卡片 -->
         </div>
       </div>
     </div>
@@ -382,6 +455,17 @@ service cloud.firestore {
       <div class="flex justify-end gap-3">
         <button onclick="closePrompt()" class="chalk-btn">取消</button>
         <button onclick="submitPrompt()" class="chalk-btn bg-yellow-600/50">確定</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 客製化確認彈窗 (取代原生的 confirm，防止被瀏覽器阻擋) -->
+  <div id="custom-confirm-modal" class="hidden-view fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[70] p-4">
+    <div class="chalk-box w-full max-w-sm text-center">
+      <h3 id="custom-confirm-message" class="text-lg font-bold mb-6 leading-relaxed"></h3>
+      <div class="flex justify-center gap-4">
+        <button id="custom-confirm-cancel" class="chalk-btn border-white/50 text-white/80 hover:bg-white/20 hover:text-white">取消</button>
+        <button id="custom-confirm-ok" class="chalk-btn bg-red-600/80 border-red-400 hover:bg-red-500 text-white">確定</button>
       </div>
     </div>
   </div>
@@ -442,7 +526,7 @@ service cloud.firestore {
     </div>
   </div>
 
-  <!-- Firebase 應用邏輯 (改為根目錄的共用資料夾，達成真正共用儲存) -->
+  <!-- Firebase 應用邏輯 -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
     import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
@@ -470,23 +554,22 @@ service cloud.firestore {
     let studentsData = [];
     let booksData = [];
     let scheduleEntriesData = [];
-    let annualEventsData = []; // 年度行事曆資料
+    let annualEventsData = []; 
+    let attendanceData = []; // 新增點名簿資料
     let schSettings = { academicYear: '114', semester: '下學期', leadTeacher: '大熊老師', coTeacher: '兔兔老師', firstWeekLead: '大熊老師', id: null };
 
-    // 全域變數：追蹤是否有未儲存的變更
     window.hasUnsavedAnnualChanges = false;
+    window.hasUnsavedScheduleChanges = false;
     window.currentRenderedYear = '114';
     window.currentRenderedSemester = '下學期';
 
-    // 離開網頁前的防呆警告
     window.addEventListener('beforeunload', (e) => {
-      if (window.hasUnsavedAnnualChanges) {
+      if (window.hasUnsavedAnnualChanges || window.hasUnsavedScheduleChanges) {
          e.preventDefault();
          e.returnValue = '';
       }
     });
 
-    // 排程相關狀態 (利用 localStorage 記憶上次看過的日期，避免重新整理後跳回今天)
     let schCurrentDate = new Date();
     const savedSchDate = localStorage.getItem('bearClass_schCurrentDate');
     if (savedSchDate) {
@@ -496,12 +579,54 @@ service cloud.firestore {
     let viewingWeek = 1;
     let promptCallback = null;
 
-    // 共用函數：格式化日期
+    // 客製化警告對話框 (單一按鈕防呆)
+    window.showAlert = (message) => {
+      document.getElementById('custom-confirm-message').innerHTML = message.replace(/\n/g, '<br>');
+      document.getElementById('custom-confirm-cancel').classList.add('hidden-view'); // 隱藏取消按鈕
+      document.getElementById('custom-confirm-modal').classList.remove('hidden-view');
+      
+      document.getElementById('custom-confirm-ok').onclick = () => {
+        document.getElementById('custom-confirm-cancel').classList.remove('hidden-view'); // 恢復顯示
+        document.getElementById('custom-confirm-modal').classList.add('hidden-view');
+      };
+    };
+
+    // 客製化確認對話框 (取代原生的 confirm)
+    window.openConfirm = (message, onConfirm, onCancel) => {
+      document.getElementById('custom-confirm-message').innerHTML = message.replace(/\n/g, '<br>');
+      document.getElementById('custom-confirm-cancel').classList.remove('hidden-view'); // 確保顯示取消按鈕
+      document.getElementById('custom-confirm-modal').classList.remove('hidden-view');
+      
+      document.getElementById('custom-confirm-ok').onclick = () => {
+        window.closeConfirm();
+        if(onConfirm) onConfirm();
+      };
+      
+      document.getElementById('custom-confirm-cancel').onclick = () => {
+        window.closeConfirm();
+        if(onCancel) onCancel();
+      };
+    };
+
+    window.closeConfirm = () => {
+      document.getElementById('custom-confirm-modal').classList.add('hidden-view');
+    };
+
+    // 天氣解碼統一代碼 (確保右上角與排程表文字一致)
+    const getWeatherDesc = (code) => {
+        if (code <= 1) return '晴朗';
+        if (code <= 3) return '多雲';
+        if (code <= 48) return '陰/霧';
+        if (code <= 67) return '雨天';
+        if (code >= 71) return '下雪';
+        return '晴朗';
+    };
+
     const formatDate = (d) => `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`;
     const getWeekDays = (date) => {
       const current = new Date(date);
       const day = current.getDay();
-      const diff = current.getDate() - day + (day === 0 ? -6 : 1); // 將日曆第一天定為星期一
+      const diff = current.getDate() - day + (day === 0 ? -6 : 1);
       const monday = new Date(current.setDate(diff));
       return Array.from({length:7}).map((_,i) => {
         const d = new Date(monday);
@@ -510,23 +635,19 @@ service cloud.firestore {
       });
     };
 
-    // 取得開學週的星期一 (模擬演算法：上學期約 8月底，下學期約 2月中)
     const getSemesterStartMonday = (minguoYear, semester) => {
       const gregorianYear = parseInt(minguoYear) + 1911;
       let targetDate;
       if (semester === '上學期') {
-        targetDate = new Date(gregorianYear, 7, 30); // 八月底
+        targetDate = new Date(gregorianYear, 7, 30); 
       } else {
-        // 以 114學年下學期為例，開學在 2026/02/11 附近，週一為 2/09
         targetDate = new Date(gregorianYear + 1, 1, 11); 
       }
-      // 找出該週的星期一
       const day = targetDate.getDay();
       const diff = targetDate.getDate() - day + (day === 0 ? -6 : 1);
       return new Date(targetDate.setDate(diff));
     };
 
-    // 計算目標日期是該學期的第幾週
     const getViewingWeek = (currentDate, year, semester) => {
       const startMonday = getSemesterStartMonday(year, semester);
       const currentTarget = new Date(currentDate);
@@ -534,78 +655,314 @@ service cloud.firestore {
       const diffToMonday = currentTarget.getDate() - day + (day === 0 ? -6 : 1);
       const currentMonday = new Date(currentTarget.setDate(diffToMonday));
       
-      // 將時間歸零以避免日光節約等時間誤差
       startMonday.setHours(0,0,0,0);
       currentMonday.setHours(0,0,0,0);
       
       const diffTime = currentMonday.getTime() - startMonday.getTime();
       const diffWeeks = Math.floor(diffTime / (1000 * 60 * 60 * 24 * 7));
       
-      // 確保週次介於第 1 週到第 21 週之間
       return Math.max(1, Math.min(21, diffWeeks + 1));
     };
 
-    // 取得天氣
     fetch('https://api.open-meteo.com/v1/forecast?latitude=23.5&longitude=121&current_weather=true')
       .then(res => res.json())
       .then(data => {
         const code = data.current_weather.weathercode;
         document.getElementById('weather-temp').innerText = `${data.current_weather.temperature}°C`;
+        
         let iconName = 'sun';
         if (code >= 1 && code <= 3) iconName = 'cloud';
-        if (code >= 51) iconName = 'cloud-rain';
+        else if (code >= 45 && code <= 48) iconName = 'cloud';
+        else if (code >= 51 && code <= 67) iconName = 'cloud-rain';
+        else if (code >= 71) iconName = 'cloud-snow';
+
         document.getElementById('weather-icon').innerHTML = `<i data-lucide="${iconName}" class="w-8 h-8 ${iconName==='sun'?'text-yellow-300':'text-blue-200'}"></i>`;
+        document.getElementById('weather-desc').innerText = getWeatherDesc(code);
         lucide.createIcons();
       }).catch(e => console.log('Weather err'));
 
-    // 更新 Header 日期
     document.getElementById('header-month').innerText = `${today.getMonth()+1}月`;
     document.getElementById('header-date').innerText = today.getDate();
 
-    // =============== 畫面切換控制 ===============
-    window.navigate = (viewId) => {
-      if (window.hasUnsavedAnnualChanges && viewId !== currentView) {
-         if(!confirm("⚠️ 您在「學校年度行事曆」有尚未儲存的資料！\n確定要切換頁面嗎？（離開將遺失未儲存內容）")) {
-             return;
-         }
-         window.hasUnsavedAnnualChanges = false;
+    // ================= 點名簿系統 (浮動工具) =================
+    window.toggleAttendance = () => {
+        document.getElementById('attendance-drawer').classList.toggle('-translate-x-full');
+    };
+
+    window.navAttendanceDate = (dir) => {
+      const dateInput = document.getElementById('attendance-date');
+      if(!dateInput.value) {
+          const tzOffset = today.getTimezoneOffset() * 60000;
+          dateInput.value = new Date(today.getTime() - tzOffset).toISOString().split('T')[0];
       }
-
-      currentView = viewId;
-      ['home', 'annual', 'students', 'books', 'schedule'].forEach(v => {
-        document.getElementById(`view-${v}`).classList.add('hidden-view');
-      });
-      document.getElementById(`view-${viewId}`).classList.remove('hidden-view');
+      const [y, m, d] = dateInput.value.split('-');
+      const currentDate = new Date(y, m - 1, d);
+      currentDate.setDate(currentDate.getDate() + dir);
       
-      const btnHome = document.getElementById('btn-back-home');
-      if(viewId === 'home') btnHome.classList.add('hidden-view');
-      else btnHome.classList.remove('hidden-view');
+      const yyyy = currentDate.getFullYear();
+      const mm = String(currentDate.getMonth() + 1).padStart(2, '0');
+      const dd = String(currentDate.getDate()).padStart(2, '0');
+      dateInput.value = `${yyyy}-${mm}-${dd}`;
+      renderAttendance();
+    };
 
-      renderCurrentView();
+    // 只負責重繪 HTML (當學生數量改變或初次載入時)
+    window.renderAttendance = () => {
+        const dateInput = document.getElementById('attendance-date');
+        if(!dateInput.value) {
+            const tzOffset = today.getTimezoneOffset() * 60000;
+            dateInput.value = new Date(today.getTime() - tzOffset).toISOString().split('T')[0];
+        }
+        
+        document.getElementById('att-academic-year').innerText = `${schSettings.academicYear}學年`;
+
+        const currentYearStudents = [...studentsData]
+            .filter(s => s.academicYear === schSettings.academicYear)
+            .sort((a,b) => Number(a.seatNo) - Number(b.seatNo));
+            
+        const currentList = document.getElementById('attendance-list');
+        const currentItemCount = currentList.querySelectorAll('.att-item').length;
+        
+        // 只有在學生數量改變、資料被修改過，或是目前為空資料時才重新產生整個 HTML
+        // 以防止在打卡時畫面一直刷新重繪，導致選單閃爍
+        if (window.forceRebuildAttendance || currentItemCount !== currentYearStudents.length || currentList.innerHTML.includes('尚未建立')) {
+            let listHtml = '';
+            currentYearStudents.forEach(s => {
+                listHtml += `
+                <div class="att-item bg-black/30 p-2.5 rounded flex flex-col gap-2 border border-white/10" data-sid="${s.id}">
+                   <div class="flex justify-between items-center">
+                      <div class="flex items-center gap-2">
+                          <span id="att-name-${s.id}" class="font-bold">${s.seatNo}. ${s.name}</span>
+                          <span id="att-saved-${s.id}" class="text-[10px] bg-green-500/80 px-1.5 py-0.5 rounded text-white opacity-0 transition-opacity duration-300 tracking-wider">已儲存</span>
+                      </div>
+                      <div class="flex gap-2 text-sm">
+                         <label class="flex items-center gap-1 cursor-pointer"><input type="radio" name="att_${s.id}" value="attend" onchange="updateAtt('${s.id}')" class="accent-green-500"> 出席</label>
+                         <label class="flex items-center gap-1 cursor-pointer"><input type="radio" name="att_${s.id}" value="leave" onchange="updateAtt('${s.id}')" class="accent-red-500"> 請假</label>
+                      </div>
+                   </div>
+                   <div id="leave-reason-${s.id}" class="text-right mt-1 hidden">
+                      <select id="reason_${s.id}" class="chalk-input text-black bg-white w-24 text-xs py-1" onchange="updateAtt('${s.id}')">
+                         <option value="病假">病假</option>
+                         <option value="事假">事假</option>
+                      </select>
+                   </div>
+                </div>
+                `;
+            });
+            currentList.innerHTML = listHtml || '<div class="text-center text-white/50 py-4">本學年尚未建立學生資料</div>';
+            window.forceRebuildAttendance = false; // 重繪完成後解除標記
+        }
+        
+        syncAttendanceDataToUI(); // 將狀態同步回去
+    };
+
+    // 將資料庫狀態綁定到現有的 HTML (不破壞目前的焦點與輸入)
+    window.syncAttendanceDataToUI = () => {
+        const dateStr = document.getElementById('attendance-date').value;
+        if(!dateStr) return;
+        
+        const currentYearStudents = [...studentsData].filter(s => s.academicYear === schSettings.academicYear);
+        const dayAtt = attendanceData.find(a => a.id === dateStr) || { records: {} };
+        
+        let presentCount = 0;
+        let leaveCount = 0;
+        
+        currentYearStudents.forEach(s => {
+            const rec = dayAtt.records[s.id] || {};
+            const status = rec.status || '';
+            const reason = rec.reason || '病假';
+            
+            const radAttend = document.querySelector(`input[name="att_${s.id}"][value="attend"]`);
+            const radLeave = document.querySelector(`input[name="att_${s.id}"][value="leave"]`);
+            if(radAttend) radAttend.checked = (status === 'attend');
+            if(radLeave) radLeave.checked = (status === 'leave');
+            
+            if(status === 'attend') presentCount++;
+            if(status === 'leave') leaveCount++;
+            
+            const nameSpan = document.getElementById(`att-name-${s.id}`);
+            if(nameSpan) {
+                nameSpan.className = `font-bold ${status==='leave'?'text-red-300':(status==='attend'?'text-green-200':'')}`;
+            }
+            
+            const reasonSelect = document.getElementById(`reason_${s.id}`);
+            if(reasonSelect) reasonSelect.value = reason;
+            
+            const reasonContainer = document.getElementById(`leave-reason-${s.id}`);
+            if(reasonContainer) {
+                if(status === 'leave') reasonContainer.classList.remove('hidden');
+                else reasonContainer.classList.add('hidden');
+            }
+        });
+        
+        document.getElementById('att-sum-total').innerText = currentYearStudents.length;
+        document.getElementById('att-sum-present').innerText = presentCount;
+        document.getElementById('att-sum-leave').innerText = leaveCount;
+        
+        if (currentView === 'schedule') {
+             updateDailyCardAttendance();
+        }
+    };
+
+    window.updateAtt = async (studentId) => {
+        if(!currentUser) return;
+        const dateStr = document.getElementById('attendance-date').value;
+        const statusEl = document.querySelector(`input[name="att_${studentId}"]:checked`);
+        const status = statusEl ? statusEl.value : '';
+        const reasonEl = document.getElementById(`reason_${studentId}`);
+        const reason = status === 'leave' ? reasonEl.value : '';
+
+        // 立即改變畫面的 Toggle 顯示
+        const reasonContainer = document.getElementById(`leave-reason-${studentId}`);
+        if (reasonContainer) {
+            if (status === 'leave') reasonContainer.classList.remove('hidden');
+            else reasonContainer.classList.add('hidden');
+        }
+
+        // 立即改變畫面的名字顏色
+        const nameSpan = document.getElementById(`att-name-${studentId}`);
+        if (nameSpan) {
+            nameSpan.className = `font-bold ${status==='leave'?'text-red-300':(status==='attend'?'text-green-200':'')}`;
+        }
+
+        // 立即重新計算畫面的總數
+        let presentCount = 0;
+        let leaveCount = 0;
+        document.querySelectorAll('input[type="radio"]:checked').forEach(el => {
+            if (el.value === 'attend') presentCount++;
+            if (el.value === 'leave') leaveCount++;
+        });
+        document.getElementById('att-sum-present').innerText = presentCount;
+        document.getElementById('att-sum-leave').innerText = leaveCount;
+
+        // 準備儲存至資料庫
+        const dayData = attendanceData.find(a => a.id === dateStr) || { records: {} };
+        const newRecords = { ...dayData.records };
+        newRecords[studentId] = { status, reason };
+        
+        // 預先樂觀寫入本地快取陣列，防止重新刷新洗掉畫面
+        if (!attendanceData.find(a => a.id === dateStr)) {
+            attendanceData.push({ id: dateStr, date: dateStr, records: newRecords });
+        } else {
+            attendanceData.find(a => a.id === dateStr).records = newRecords;
+        }
+
+        try {
+            await setDoc(doc(db, "bear_attendance", dateStr), { date: dateStr, records: newRecords }, { merge: true });
+            
+            // 顯示已儲存的小提示，增加使用者安心感
+            const savedTag = document.getElementById(`att-saved-${studentId}`);
+            if (savedTag) {
+                savedTag.classList.remove('opacity-0');
+                setTimeout(() => savedTag.classList.add('opacity-0'), 1500);
+            }
+            updateDailyCardAttendance();
+        } catch(e) {
+            handleSnapshotError(e);
+        }
+    };
+    
+    // 更新每日卡片的點名資訊 (不重新 render 整個區域)
+    const updateDailyCardAttendance = () => {
+        const weekDays = getWeekDays(schCurrentDate).slice(0, 5);
+        const currentYearStudents = [...studentsData].filter(s => s.academicYear === schSettings.academicYear);
+        const total = currentYearStudents.length;
+        
+        weekDays.forEach((d, index) => {
+             const dateStr = formatDate(d); // YYYY/MM/DD
+             const docId = dateStr.replace(/\//g, '-'); // YYYY-MM-DD
+             
+             const dayAtt = attendanceData.find(a => a.id === docId) || { records: {} };
+             let presentCount = 0;
+             let leaveCount = 0;
+             currentYearStudents.forEach(s => {
+                 const st = (dayAtt.records[s.id] || {}).status;
+                 if(st === 'attend') presentCount++;
+                 if(st === 'leave') leaveCount++;
+             });
+             
+             const targetDiv = document.getElementById(`sch-daily-att-${index}`);
+             if (targetDiv) {
+                 targetDiv.innerHTML = `
+                    <span class="text-green-100">在籍: ${total}</span>
+                    <span class="text-yellow-300">出席: ${presentCount}</span>
+                    <span class="text-red-300">請假: ${leaveCount}</span>
+                 `;
+             }
+        });
+    };
+
+    // =============== 畫面切換控制 ===============
+    const checkScheduleUnsaved = (proceedCallback) => {
+      if (window.hasUnsavedScheduleChanges) {
+          window.openConfirm("⚠️ 本週有尚未儲存的紀錄！\n確定要切換嗎？（離開將遺失未儲存內容）\n(按取消並將游標點擊空白處可完成存檔)", () => {
+              window.hasUnsavedScheduleChanges = false;
+              proceedCallback();
+          });
+      } else {
+          proceedCallback();
+      }
+    };
+
+    window.navigate = (viewId) => {
+      const doNavigate = () => {
+          currentView = viewId;
+          ['home', 'annual', 'students', 'books', 'schedule'].forEach(v => {
+            document.getElementById(`view-${v}`).classList.add('hidden-view');
+          });
+          document.getElementById(`view-${viewId}`).classList.remove('hidden-view');
+          
+          const btnHome = document.getElementById('btn-back-home');
+          if(viewId === 'home') btnHome.classList.add('hidden-view');
+          else btnHome.classList.remove('hidden-view');
+
+          renderCurrentView();
+      };
+
+      if ((window.hasUnsavedAnnualChanges || window.hasUnsavedScheduleChanges) && viewId !== currentView) {
+         window.openConfirm("⚠️ 您有尚未儲存的資料！\n確定要切換頁面嗎？（離開將遺失未儲存內容）", () => {
+             window.hasUnsavedAnnualChanges = false;
+             window.hasUnsavedScheduleChanges = false;
+             doNavigate();
+         });
+      } else {
+         doNavigate();
+      }
     };
 
     const renderCurrentView = () => {
       if (currentView === 'annual') renderAnnual();
       if (currentView === 'students') renderStudents();
       if (currentView === 'books') renderBooks();
-      if (currentView === 'schedule') renderSchedule();
+      if (currentView === 'schedule') {
+          renderSchedule();
+          // 如果點名簿日曆沒有值，設定為今天並渲染
+          const attDate = document.getElementById('attendance-date');
+          if(!attDate.value) {
+             const tzOffset = today.getTimezoneOffset() * 60000;
+             attDate.value = new Date(today.getTime() - tzOffset).toISOString().split('T')[0];
+          }
+          renderAttendance(); 
+      }
       lucide.createIcons();
     };
 
     // =============== 模組 0: 學校年度行事曆 ===============
     window.changeAnnualSemester = () => {
       if (window.hasUnsavedAnnualChanges) {
-          if(!confirm("⚠️ 您有尚未儲存的資料！\n切換學期將遺失目前的變更，確定要切換嗎？\n(按取消並點擊右上角「儲存」來保留資料)")) {
-              // 復原下拉選單到原本的值
+          window.openConfirm("⚠️ 您有尚未儲存的資料！\n切換學期將遺失目前的變更，確定要切換嗎？\n(按取消並點擊右上角「儲存」來保留資料)", () => {
+              window.hasUnsavedAnnualChanges = false;
+              renderAnnual();
+          }, () => {
               const yrInput = document.getElementById('annual-year');
               const semSelect = document.getElementById('annual-semester');
               if (yrInput) yrInput.value = window.currentRenderedYear;
               if (semSelect) semSelect.value = window.currentRenderedSemester;
-              return;
-          }
+          });
+      } else {
+          window.hasUnsavedAnnualChanges = false;
+          renderAnnual();
       }
-      window.hasUnsavedAnnualChanges = false;
-      renderAnnual();
     };
 
     window.renderAnnual = () => {
@@ -618,11 +975,9 @@ service cloud.firestore {
 
       document.getElementById('annual-title-display').innerHTML = `某幼兒園 ${year} 學年度 第 ${termString} 學期`;
 
-      // 產生指定的文件 ID 來比對資料
       const docId = `${year}_${semester}`;
       const dataObj = annualEventsData.find(d => d.id === docId);
       
-      // 確保 weeks 資料結構為陣列物件 (相容舊資料)
       let savedWeeks = [];
       if (dataObj && dataObj.weeks) {
         savedWeeks = dataObj.weeks.map(w => typeof w === 'string' ? { events: w, theme: '', obj: '' } : w);
@@ -630,7 +985,6 @@ service cloud.firestore {
         savedWeeks = Array(21).fill({ events: '', theme: '', obj: '' });
       }
 
-      // 推算本學期的 21 週日期
       const startMonday = getSemesterStartMonday(year, semester);
       let weeksData = [];
       let currentDate = new Date(startMonday);
@@ -641,23 +995,18 @@ service cloud.firestore {
           days.push(new Date(currentDate));
           currentDate.setDate(currentDate.getDate() + 1);
         }
-        // 以週四決定這個禮拜主要屬於哪一個月 (ISO 8601 邏輯)
         let mainMonth = days[3].getMonth() + 1;
         weeksData.push({ weekNum: i + 1, mainMonth, days });
       }
 
-      // 計算每個主要月份橫跨多少週 (用於 rowspan)
       let monthCounts = {};
       weeksData.forEach(w => { monthCounts[w.mainMonth] = (monthCounts[w.mainMonth] || 0) + 1; });
 
-      // 產生 Table Body 的 HTML 結構 (先不填入可能包含特殊字元的資料)
       let html = '';
       let renderedMonths = {};
 
       weeksData.forEach((w, index) => {
         html += `<tr class="border-b border-white/20 hover:bg-white/5 transition-colors group">`;
-        
-        // 處理月份合併儲存格
         if (!renderedMonths[w.mainMonth]) {
           html += `<td rowspan="${monthCounts[w.mainMonth]}" class="font-bold text-lg bg-black/30">${w.mainMonth}<br>月</td>`;
           renderedMonths[w.mainMonth] = true;
@@ -665,7 +1014,6 @@ service cloud.firestore {
 
         html += `<td class="font-bold text-yellow-300 bg-black/10">${w.weekNum}</td>`;
         
-        // 產生一到日的日期
         w.days.forEach((d, dayIndex) => {
           const isMainMonth = (d.getMonth() + 1) === w.mainMonth;
           const isWeekend = dayIndex === 5 || dayIndex === 6;
@@ -674,7 +1022,6 @@ service cloud.firestore {
           html += `<td class="${tdClasses}" onclick="addDailyEvent(${index}, '${dateStr}')" title="點擊新增 ${dateStr} 重點事項">${d.getDate()}</td>`;
         });
 
-        // 行事曆輸入框 (使用安全注入，所以不直接在 HTML 字串中插入 value)
         html += `
           <td><textarea id="annual-events-${index}" placeholder="輸入本週重要事項..." oninput="window.hasUnsavedAnnualChanges=true"></textarea></td>
           <td><textarea id="annual-theme-${index}" class="text-center" placeholder="主題" oninput="window.hasUnsavedAnnualChanges=true"></textarea></td>
@@ -684,7 +1031,6 @@ service cloud.firestore {
 
       document.getElementById('annual-table-body').innerHTML = html;
 
-      // 【核心修復】：安全注入資料，避免使用者輸入特殊符號造成 HTML 結構破壞導致資料空白
       weeksData.forEach((w, index) => {
         const savedData = savedWeeks[index] || { events: '', theme: '', obj: '' };
         const evEl = document.getElementById(`annual-events-${index}`);
@@ -719,7 +1065,6 @@ service cloud.firestore {
         });
       }
 
-      // 改為根目錄共用 Collection
       try {
         const btn = document.getElementById('btn-save-annual');
         let oldHtml = '';
@@ -732,7 +1077,6 @@ service cloud.firestore {
         await setDoc(doc(db, "bear_annualEvents", docId), { year, semester, weeks }, { merge: true });
         window.hasUnsavedAnnualChanges = false;
 
-        // 存檔時，同步更新「全域學期設定」
         const newSettings = { academicYear: year, semester: semester };
         if (schSettings.id) {
           await updateDoc(doc(db, "bear_scheduleSettings", schSettings.id), newSettings);
@@ -755,7 +1099,50 @@ service cloud.firestore {
       }
     };
 
-    // 新增每日重點事項至當週行事曆
+    window.fetchTaichungCalendar = () => {
+      const semester = document.getElementById('annual-semester').value;
+      window.openConfirm(`即將載入「${semester}」的預設國小參考行事曆，這將覆蓋您目前畫面上未儲存的內容，確定嗎？`, () => {
+          const mockData = {
+            '上學期': { 
+              0: { events: '◎ 開學準備週\n◎ 幼兒園室內外消毒' },
+              1: { events: '◎ 正式開學\n◎ 迎新活動' },
+              4: { events: '◎ 中秋節放假' },
+              8: { events: '◎ 國慶日放假' },
+              18: { events: '◎ 期末測量身高體重' },
+              20: { events: '◎ 結業式\n◎ 寒假開始' }
+            },
+            '下學期': { 
+              0: { events: '◎ 2/9(一)幼兒園清洗冷氣\n◎ 2/11(三)開學', theme: '各班自訂' },
+              1: { events: '◎ 2月份慶生會', obj: '* 認識小學生活概況\n* 收拾與整理' },
+              3: { events: '◎ 3月份慶生會\n◎ 科博館 STEAM 攤位' },
+              7: { events: '◎ 4/3-4/6 兒童清明連假\n◎ 4月份慶生會' },
+              10: { events: '◎ 戶外教學 (預定)' },
+              11: { events: '◎ 勞動節連假\n◎ 母親節慶祝活動' },
+              18: { events: '◎ 畢業典禮' },
+              19: { events: '◎ 端午節連假' },
+              20: { events: '◎ 暑假開始\n~快樂過暑假~' }
+            }
+          };
+
+          const targetMock = mockData[semester];
+          if (targetMock) {
+            window.hasUnsavedAnnualChanges = true;
+            for(let i=0; i<21; i++) {
+              if(targetMock[i]) {
+                const evntEl = document.getElementById(`annual-events-${i}`);
+                const themeEl = document.getElementById(`annual-theme-${i}`);
+                const objEl = document.getElementById(`annual-obj-${i}`);
+                
+                if(targetMock[i].events && evntEl) evntEl.value = targetMock[i].events;
+                if(targetMock[i].theme && themeEl) themeEl.value = targetMock[i].theme;
+                if(targetMock[i].obj && objEl) objEl.value = targetMock[i].obj;
+              }
+            }
+            saveAnnual(); 
+          }
+      });
+    };
+
     window.addDailyEvent = (weekIndex, dateStr) => {
       openPrompt(`請輸入 ${dateStr} 的重點事項：`, (content) => {
         if (!content || content.trim() === '') return;
@@ -783,8 +1170,9 @@ service cloud.firestore {
       const sorted = [...studentsData].sort((a,b) => Number(a.seatNo) - Number(b.seatNo));
       tbody.innerHTML = sorted.map(s => `
         <tr class="border-b border-white/20 hover:bg-white/10">
+          <td class="p-2 font-bold text-yellow-300">${s.academicYear || '-'}</td>
           <td class="p-2">${s.seatNo}</td><td class="p-2 font-bold">${s.name}</td><td class="p-2">${s.gender}</td>
-          <td class="p-2 text-red-200">${s.allergens || '無'}</td><td class="p-2">${s.emergencyContact}</td><td class="p-2">${s.emergencyPhone}</td>
+          <td class="p-2 text-red-200">${s.allergens || '無'}</td><td class="p-2">${s.emergencyContact || '-'}</td><td class="p-2">${s.emergencyPhone || '-'}</td>
           <td class="p-2 flex justify-center gap-2">
             <button onclick="editStudent('${s.id}')" class="text-yellow-300 hover:scale-110"><i data-lucide="pen-tool" class="w-5 h-5"></i></button>
             <button onclick="deleteStudent('${s.id}')" class="text-red-400 hover:scale-110"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
@@ -800,8 +1188,25 @@ service cloud.firestore {
       e.preventDefault();
       if(!currentUser) return;
       
+      const academicYear = document.getElementById('stu-year').value;
+      const seatNo = document.getElementById('stu-seatNo').value;
+      const editId = document.getElementById('student-edit-id').value;
+
+      // 防呆檢查：該學年是否已有相同座號的學生
+      const isDuplicate = studentsData.some(s => 
+          s.academicYear === academicYear && 
+          String(s.seatNo) === String(seatNo) && 
+          s.id !== editId
+      );
+
+      if (isDuplicate) {
+          window.showAlert(`⚠️ 儲存失敗！\n${academicYear}學年度已經有「座號 ${seatNo}」的學生了，座號不可重複。`);
+          return;
+      }
+
       const data = {
-        seatNo: document.getElementById('stu-seatNo').value,
+        academicYear: academicYear,
+        seatNo: seatNo,
         name: document.getElementById('stu-name').value,
         gender: document.getElementById('stu-gender').value,
         allergens: document.getElementById('stu-allergens').value,
@@ -809,7 +1214,6 @@ service cloud.firestore {
         emergencyPhone: document.getElementById('stu-phone').value,
       };
       
-      const editId = document.getElementById('student-edit-id').value;
       if (editId) {
         await updateDoc(doc(db, "bear_students", editId), data);
       } else {
@@ -821,29 +1225,53 @@ service cloud.firestore {
     window.editStudent = (id) => {
       const s = studentsData.find(x => x.id === id);
       if(!s) return;
+      
+      // 平滑捲動置頂與加上醒目顏色
+      const wrapper = document.getElementById('student-form-wrapper');
+      if (wrapper) {
+         wrapper.classList.add('border-4', 'border-yellow-400', 'bg-yellow-600/30', 'shadow-[0_0_20px_rgba(250,204,21,0.5)]');
+         window.scrollTo({ top: wrapper.offsetTop - 20, behavior: 'smooth' });
+      }
+
       document.getElementById('student-edit-id').value = id;
+      document.getElementById('stu-year').value = s.academicYear || schSettings.academicYear || '';
       document.getElementById('stu-seatNo').value = s.seatNo;
       document.getElementById('stu-name').value = s.name;
       document.getElementById('stu-gender').value = s.gender;
       document.getElementById('stu-allergens').value = s.allergens || '';
-      document.getElementById('stu-contact').value = s.emergencyContact;
-      document.getElementById('stu-phone').value = s.emergencyPhone;
+      document.getElementById('stu-contact').value = s.emergencyContact || '';
+      document.getElementById('stu-phone').value = s.emergencyPhone || '';
       document.getElementById('btn-cancel-student').classList.remove('hidden-view');
-      document.getElementById('student-form-title').innerHTML = '<i data-lucide="pen-tool"></i> 編輯學生資料';
+      
+      document.getElementById('student-form-title').innerHTML = '<i data-lucide="pen-tool"></i> 修改學生資料 <span class="text-sm font-normal text-yellow-200 ml-2 border border-yellow-400 px-2 rounded bg-black/30">(編輯模式)</span>';
+      
       lucide.createIcons();
     };
 
     window.resetStudentForm = () => {
       document.getElementById('form-student').reset();
+      
+      const wrapper = document.getElementById('student-form-wrapper');
+      if (wrapper) {
+         wrapper.classList.remove('border-4', 'border-yellow-400', 'bg-yellow-600/30', 'shadow-[0_0_20px_rgba(250,204,21,0.5)]');
+      }
+
       document.getElementById('student-edit-id').value = '';
+      document.getElementById('stu-year').value = schSettings.academicYear || '114';
       document.getElementById('btn-cancel-student').classList.add('hidden-view');
       document.getElementById('student-form-title').innerHTML = '<i data-lucide="plus-circle"></i> 新增學生資料';
       lucide.createIcons();
     };
 
-    window.deleteStudent = async (id) => {
+    window.deleteStudent = (id) => {
       if(!currentUser) return;
-      await deleteDoc(doc(db, "bear_students", id));
+      window.openConfirm('確定要刪除這筆學生資料嗎？', async () => {
+          try {
+              await deleteDoc(doc(db, "bear_students", id));
+          } catch(e) {
+              handleSnapshotError(e);
+          }
+      });
     };
 
     // =============== 模組 2: 藏書管理 ===============
@@ -915,9 +1343,15 @@ service cloud.firestore {
       await updateDoc(doc(db, "bear_books", id), { isBorrowed: '否', borrower: '', borrowDate: '', returnDate: '' });
     };
 
-    window.deleteBook = async (id) => {
+    window.deleteBook = (id) => {
       if(!currentUser) return;
-      await deleteDoc(doc(db, "bear_books", id));
+      window.openConfirm('確定要刪除這本藏書紀錄嗎？', async () => {
+          try {
+              await deleteDoc(doc(db, "bear_books", id));
+          } catch(e) {
+              handleSnapshotError(e);
+          }
+      });
     };
 
     window.generateAutoArrange = () => {
@@ -998,10 +1432,24 @@ service cloud.firestore {
           currentWeekEvent = weekData;
         } else {
           currentWeekEvent = weekData.events;
-          if(weekData.theme) currentWeekEvent += `\n【主題】：${weekData.theme}`;
         }
       }
       document.getElementById('sch-weekly-event').value = currentWeekEvent;
+
+      let currentTheme = '各班自訂';
+      if (annualData && annualData.weeks && annualData.weeks[viewingWeek - 1]) {
+        const weekData = annualData.weeks[viewingWeek - 1];
+        if (typeof weekData === 'object' && weekData.theme) {
+          currentTheme = weekData.theme || '各班自訂';
+        }
+      }
+      const themeDisplay = document.getElementById('sch-weekly-theme-display');
+      const themeText = document.getElementById('sch-theme-text');
+      if (themeDisplay && themeText) {
+        themeDisplay.classList.remove('hidden');
+        themeDisplay.classList.add('flex');
+        themeText.innerText = `⭐ 本週主題：${currentTheme} ⭐`;
+      }
 
       const year = schCurrentDate.getFullYear();
       const month = schCurrentDate.getMonth();
@@ -1021,71 +1469,257 @@ service cloud.firestore {
       }
       document.getElementById('mini-cal-grid').innerHTML = mCalHtml;
 
+      const workDays = weekDays.slice(0, 5);
       const dayNames = ['日', '一', '二', '三', '四', '五', '六'];
-      let theadHtml = `<th class="border-2 border-white/30 p-2 w-16">時間</th>`;
-      weekDays.forEach(d => {
+      let daysHtml = '';
+      
+      workDays.forEach((d, index) => {
+        const dateStr = formatDate(d);
+        const docId = dateStr.replace(/\//g, '-');
         const isT = d.toDateString() === today.toDateString();
-        theadHtml += `<th class="border-2 border-white/30 p-2 w-1/7 ${isT ? 'bg-yellow-500/40 text-yellow-100' : 'bg-black/20'}">${d.getMonth()+1}/${d.getDate()} <br/> (${dayNames[d.getDay()]})</th>`;
-      });
-      document.getElementById('sch-grid-header').innerHTML = theadHtml;
+        
+        daysHtml += `
+          <div class="flex-1 bg-white/10 rounded-2xl border-2 ${isT ? 'border-yellow-400 bg-yellow-500/10 shadow-[0_0_15px_rgba(250,204,21,0.3)]' : 'border-white/30'} p-4 flex flex-col gap-4">
+              <div class="flex flex-col xl:flex-row justify-between items-start xl:items-center border-b-2 border-dashed border-white/40 pb-3 gap-2">
+                  <h3 class="text-lg md:text-xl font-bold ${isT ? 'text-yellow-300' : 'text-green-100'} whitespace-nowrap">
+                      ${d.getMonth()+1}/${d.getDate()} (星期${dayNames[d.getDay()]})
+                  </h3>
+                  <div class="flex items-center gap-2 w-full xl:w-auto justify-between xl:justify-end">
+                      <div class="flex items-center bg-black/20 border border-white/30 rounded px-2 py-1 focus-within:border-yellow-400 transition-colors">
+                          <span class="text-sm text-yellow-200 mr-1">天氣:</span>
+                          <input type="text" id="sch-weather-${index}" class="bg-transparent text-sm text-white placeholder-white/40 w-12 outline-none" placeholder="如:晴" oninput="window.hasUnsavedScheduleChanges=true" onblur="saveDailyDoc('${dateStr}', ${index})">
+                      </div>
+                      <span id="save-status-${index}" class="text-xs text-white/70 font-bold bg-black/30 px-2 py-1 rounded-full opacity-0 transition-opacity duration-300 whitespace-nowrap">✅ 已儲存</span>
+                  </div>
+              </div>
+              
+              <!-- 每日點名摘要 -->
+              <div id="sch-daily-att-${index}" class="flex justify-between items-center bg-black/30 px-3 py-2 rounded-lg border border-white/20 text-sm font-bold shadow-inner">
+                  <span class="text-green-100">在籍: 0</span>
+                  <span class="text-yellow-300">出席: 0</span>
+                  <span class="text-red-300">請假: 0</span>
+              </div>
 
-      let tbodyHtml = '';
-      [8,9,10,11,12,13,14,15,16,17].forEach(hour => {
-        tbodyHtml += `<tr><td class="border-2 border-white/30 p-2 text-center bg-black/10">${hour}:00</td>`;
-        weekDays.forEach(d => {
-          const dateStr = formatDate(d);
-          const isT = d.toDateString() === today.toDateString();
-          // 安全注入排程資料
-          tbodyHtml += `<td id="sch-cell-${dateStr}-${hour}" onclick="handleCellClick('${dateStr}', ${hour})" class="border-2 border-white/30 p-2 h-16 cursor-pointer hover:bg-white/20 align-top text-sm transition-colors ${isT?'bg-yellow-500/10':''}"></td>`;
-        });
-        tbodyHtml += `</tr>`;
+              <div class="flex flex-col gap-1.5">
+                  <label class="text-sm font-bold text-yellow-200">📌 教學活動</label>
+                  <textarea id="sch-act-${index}" class="schedule-textarea min-h-[80px]" oninput="window.hasUnsavedScheduleChanges=true" onblur="saveDailyDoc('${dateStr}', ${index})" placeholder="請輸入教學活動..."></textarea>
+              </div>
+              <div class="flex flex-col gap-1.5">
+                  <label class="text-sm font-bold text-yellow-200">💪 大肌肉運動內容</label>
+                  <textarea id="sch-motor-${index}" class="schedule-textarea min-h-[60px]" oninput="window.hasUnsavedScheduleChanges=true" onblur="saveDailyDoc('${dateStr}', ${index})" placeholder="請輸入大肌肉活動..."></textarea>
+              </div>
+              <div class="flex flex-col gap-1.5">
+                  <label class="text-sm font-bold text-yellow-200">💭 教學省思</label>
+                  <textarea id="sch-ref-${index}" class="schedule-textarea min-h-[60px]" oninput="window.hasUnsavedScheduleChanges=true" onblur="saveDailyDoc('${dateStr}', ${index})" placeholder="請輸入教學省思..."></textarea>
+              </div>
+              <div class="flex flex-col gap-1.5">
+                  <label class="text-sm font-bold text-yellow-200">📝 軼事記錄</label>
+                  <textarea id="sch-ane-${index}" class="schedule-textarea min-h-[60px]" oninput="window.hasUnsavedScheduleChanges=true" onblur="saveDailyDoc('${dateStr}', ${index})" placeholder="請輸入幼兒軼事..."></textarea>
+              </div>
+              <div class="flex flex-col gap-1.5">
+                  <label class="text-sm font-bold text-yellow-200">🤝 親師溝通</label>
+                  <textarea id="sch-com-${index}" class="schedule-textarea min-h-[60px]" oninput="window.hasUnsavedScheduleChanges=true" onblur="saveDailyDoc('${dateStr}', ${index})" placeholder="請輸入親師溝通事項..."></textarea>
+              </div>
+          </div>
+        `;
       });
-      document.getElementById('sch-grid-body').innerHTML = tbodyHtml;
+      document.getElementById('sch-days-container').innerHTML = daysHtml;
 
-      // 在表格渲染後安全地填入文字
-      [8,9,10,11,12,13,14,15,16,17].forEach(hour => {
-        weekDays.forEach(d => {
-          const dateStr = formatDate(d);
-          const entry = scheduleEntriesData.find(e => e.date === dateStr && e.hour === hour);
-          const tdEl = document.getElementById(`sch-cell-${dateStr}-${hour}`);
-          if (tdEl) tdEl.innerText = entry ? entry.content : '';
-        });
+      // 畫面產生後，安全注入各區塊資料
+      workDays.forEach((d, index) => {
+        const docId = formatDate(d).replace(/\//g, '-');
+        const entry = scheduleEntriesData.find(e => e.id === docId) || {};
+        
+        const weatherEl = document.getElementById(`sch-weather-${index}`);
+        if(weatherEl) weatherEl.value = entry.weather || '';
+
+        const actEl = document.getElementById(`sch-act-${index}`);
+        if(actEl) actEl.value = entry.activities || '';
+        
+        const motorEl = document.getElementById(`sch-motor-${index}`);
+        if(motorEl) motorEl.value = entry.motor || '';
+        
+        const refEl = document.getElementById(`sch-ref-${index}`);
+        if(refEl) refEl.value = entry.reflection || '';
+        
+        const aneEl = document.getElementById(`sch-ane-${index}`);
+        if(aneEl) aneEl.value = entry.anecdote || '';
+        
+        const comEl = document.getElementById(`sch-com-${index}`);
+        if(comEl) comEl.value = entry.communication || '';
       });
+      
+      updateDailyCardAttendance();
+
+      // 自動抓取天氣 API
+      const toLocalISODate = (date) => {
+          const tzOffset = date.getTimezoneOffset() * 60000;
+          return new Date(date.getTime() - tzOffset).toISOString().split('T')[0];
+      };
+      const startISO = toLocalISODate(workDays[0]);
+      const endISO = toLocalISODate(workDays[4]);
+      
+      const weatherApiUrl = `https://api.open-meteo.com/v1/forecast?latitude=23.5&longitude=121&daily=weathercode&timezone=Asia%2FTaipei&start_date=${startISO}&end_date=${endISO}`;
+
+      fetch(weatherApiUrl)
+        .then(res => res.json())
+        .then(data => {
+          if(data && data.daily && data.daily.weathercode) {
+            workDays.forEach((d, index) => {
+              const wInput = document.getElementById(`sch-weather-${index}`);
+              if(wInput && !wInput.value) {
+                 const code = data.daily.weathercode[index];
+                 wInput.value = getWeatherDesc(code);
+                 const dateStr = formatDate(d);
+                 saveDailyDoc(dateStr, index); // 背景默默自動存檔
+              }
+            });
+          }
+        }).catch(e => console.log('Weekly weather fetch err', e));
+    };
+
+    window.saveDailyDoc = async (dateStr, index) => {
+      if(!currentUser) return;
+      const docId = dateStr.replace(/\//g, '-');
+      
+      const actEl = document.getElementById(`sch-act-${index}`);
+      if (!actEl) return;
+
+      const data = {
+          date: dateStr,
+          weather: document.getElementById(`sch-weather-${index}`).value,
+          activities: actEl.value,
+          motor: document.getElementById(`sch-motor-${index}`).value,
+          reflection: document.getElementById(`sch-ref-${index}`).value,
+          anecdote: document.getElementById(`sch-ane-${index}`).value,
+          communication: document.getElementById(`sch-com-${index}`).value
+      };
+
+      try {
+          const statusEl = document.getElementById(`save-status-${index}`);
+          if (statusEl) {
+              statusEl.innerText = "⏳ 儲存中...";
+              statusEl.style.opacity = "1";
+          }
+
+          await setDoc(doc(db, "bear_scheduleEntries", docId), data, { merge: true });
+          window.hasUnsavedScheduleChanges = false;
+
+          if (statusEl) {
+              statusEl.innerText = "✅ 已儲存";
+              setTimeout(() => { 
+                  statusEl.style.opacity = "0"; 
+              }, 2000);
+          }
+      } catch (error) {
+          handleSnapshotError(error);
+      }
+    };
+
+    // 匯出 1日1頁 Word 檔功能
+    window.exportWeeklyToWord = () => {
+      const weekDays = getWeekDays(schCurrentDate).slice(0, 5); 
+      const dayNames = ['日', '一', '二', '三', '四', '五', '六'];
+      const currentYearStudents = [...studentsData].filter(s => s.academicYear === schSettings.academicYear);
+      const totalStudents = currentYearStudents.length;
+
+      const annualDocId = `${schSettings.academicYear}_${schSettings.semester}`;
+      const annualData = annualEventsData.find(d => d.id === annualDocId);
+      let currentTheme = '各班自訂';
+      if (annualData && annualData.weeks && annualData.weeks[viewingWeek - 1]) {
+        const weekData = annualData.weeks[viewingWeek - 1];
+        if (typeof weekData === 'object' && weekData.theme) {
+          currentTheme = weekData.theme || '各班自訂';
+        }
+      }
+
+      let htmlContent = `
+      <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+      <head>
+          <meta charset="utf-8">
+          <title>每週教學日誌</title>
+          <style>
+              body { font-family: "Microsoft JhengHei", "標楷體", sans-serif; }
+              table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+              th, td { border: 1px solid black; padding: 12px; text-align: left; vertical-align: top; }
+              th { background-color: #f2f2f2; width: 120px; font-weight: bold; }
+              h1 { text-align: center; color: #333; }
+              h3 { text-align: center; color: #555; margin-bottom: 5px; }
+              .att-summary { text-align: center; font-size: 14px; color: #333; margin-bottom: 15px; }
+          </style>
+      </head>
+      <body>
+      `;
+
+      weekDays.forEach((d, index) => {
+          const dateStr = formatDate(d);
+          const docId = dateStr.replace(/\//g, '-');
+          const entry = scheduleEntriesData.find(e => e.id === docId) || {};
+          
+          // 計算該日出席狀況
+          const dayAtt = attendanceData.find(a => a.id === docId) || { records: {} };
+          let presentCount = 0;
+          let leaveCount = 0;
+          currentYearStudents.forEach(s => {
+              const st = (dayAtt.records[s.id] || {}).status;
+              if(st === 'attend') presentCount++;
+              if(st === 'leave') leaveCount++;
+          });
+          
+          const formatText = (text) => (text || '').replace(/\n/g, '<br>');
+          const pageBreak = index > 0 ? '<br clear=all style="mso-special-character:line-break;page-break-before:always">' : '';
+
+          htmlContent += `
+          ${pageBreak}
+          <div>
+              <h1>小熊班 每日教學日誌</h1>
+              <h3>日期：${dateStr} (星期${dayNames[d.getDay()]}) &nbsp;&nbsp;&nbsp; 天氣：${entry.weather || '未填寫'}</h3>
+              <h3>本週主題：${currentTheme}</h3>
+              <div class="att-summary">在籍人數：${totalStudents}人 &nbsp;|&nbsp; 出席：${presentCount}人 &nbsp;|&nbsp; 請假：${leaveCount}人</div>
+              <table>
+                  <tr><th>📌 教學活動</th><td>${formatText(entry.activities)}</td></tr>
+                  <tr><th>💪 大肌肉運動</th><td>${formatText(entry.motor)}</td></tr>
+                  <tr><th>💭 教學省思</th><td>${formatText(entry.reflection)}</td></tr>
+                  <tr><th>📝 軼事記錄</th><td>${formatText(entry.anecdote)}</td></tr>
+                  <tr><th>🤝 親師溝通</th><td>${formatText(entry.communication)}</td></tr>
+              </table>
+          </div>
+          `;
+      });
+
+      htmlContent += `</body></html>`;
+
+      const blob = new Blob(['\ufeff', htmlContent], { type: 'application/msword' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `小熊班教學日誌_第${viewingWeek}週.doc`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     };
 
     window.navWeek = (dir) => {
-      schCurrentDate.setDate(schCurrentDate.getDate() + (dir * 7));
-      localStorage.setItem('bearClass_schCurrentDate', schCurrentDate.toISOString()); // 記憶選擇日期
-      renderSchedule();
+      checkScheduleUnsaved(() => {
+        schCurrentDate.setDate(schCurrentDate.getDate() + (dir * 7));
+        localStorage.setItem('bearClass_schCurrentDate', schCurrentDate.toISOString()); 
+        renderSchedule();
+      });
     };
 
     window.navMiniCal = (dir) => {
-      schCurrentDate = new Date(schCurrentDate.getFullYear(), schCurrentDate.getMonth() + dir, 1);
-      localStorage.setItem('bearClass_schCurrentDate', schCurrentDate.toISOString());
-      renderSchedule();
+      checkScheduleUnsaved(() => {
+        schCurrentDate = new Date(schCurrentDate.getFullYear(), schCurrentDate.getMonth() + dir, 1);
+        localStorage.setItem('bearClass_schCurrentDate', schCurrentDate.toISOString());
+        renderSchedule();
+      });
     };
 
     window.setSchDate = (y, m, d) => {
-      schCurrentDate = new Date(y, m, d);
-      localStorage.setItem('bearClass_schCurrentDate', schCurrentDate.toISOString());
-      renderSchedule();
-    };
-
-    window.handleCellClick = (dateStr, hour) => {
-      openPrompt(`請輸入 ${dateStr} ${hour}:00 的課程內容:`, async (content) => {
-        if(!currentUser) return;
-        const exist = scheduleEntriesData.find(e => e.date === dateStr && e.hour === hour);
-        
-        try {
-          if (content.trim() === '') {
-            if (exist) await deleteDoc(doc(db, "bear_scheduleEntries", exist.id));
-          } else {
-            if (exist) await updateDoc(doc(db, "bear_scheduleEntries", exist.id), { content });
-            else await addDoc(collection(db, "bear_scheduleEntries"), { date: dateStr, hour, content });
-          }
-        } catch(error) {
-          handleSnapshotError(error);
-        }
+      checkScheduleUnsaved(() => {
+        schCurrentDate = new Date(y, m, d);
+        localStorage.setItem('bearClass_schCurrentDate', schCurrentDate.toISOString());
+        renderSchedule();
       });
     };
 
@@ -1194,17 +1828,37 @@ service cloud.firestore {
       if (user) {
         currentUser = user;
         
-        // 【核心修改】全部改為全域根目錄 (Global Collections)，不綁定任何使用者的身分，真正共享
         onSnapshot(
           collection(db, "bear_students"), 
           snap => {
             studentsData = snap.docs.map(d => ({id: d.id, ...d.data()}));
-            if(currentView === 'students' || currentView === 'books') renderCurrentView();
+            
+            // 標記學生資料已更新，下次打開或重新整理點名簿時強制重繪 HTML 以同步座號及排序
+            window.forceRebuildAttendance = true; 
+
+            // 學生資料更新時同步更新點名簿名單
+            if(currentView === 'students' || currentView === 'books' || currentView === 'schedule') {
+                renderCurrentView();
+            }
+            // 確保打開點名簿時資料能即時更新
+            renderAttendance(); 
             
             const loading = document.getElementById('loading-screen');
             if (!loading.classList.contains('hidden-view')) {
               loading.classList.add('hidden-view');
               navigate(currentView);
+            }
+          }, 
+          handleSnapshotError
+        );
+
+        onSnapshot(
+          collection(db, "bear_attendance"), 
+          snap => {
+            attendanceData = snap.docs.map(d => ({id: d.id, ...d.data()}));
+            // 有任何點名資料變更，同步更新點名簿畫面與排程卡片的摘要
+            if(currentView === 'schedule') {
+                syncAttendanceDataToUI(); // 使用新方法防止干擾正在點名的老師
             }
           }, 
           handleSnapshotError
@@ -1258,6 +1912,10 @@ service cloud.firestore {
             if(currentView === 'schedule' || (currentView === 'annual' && !window.hasUnsavedAnnualChanges)) {
                renderCurrentView();
             }
+            
+            // 更動學年時同步修改新生預設欄位
+            const stuYearInput = document.getElementById('stu-year');
+            if(stuYearInput && !stuYearInput.value) stuYearInput.value = schSettings.academicYear;
           },
           handleSnapshotError
         );
@@ -1266,7 +1924,9 @@ service cloud.firestore {
           collection(db, "bear_scheduleEntries"), 
           snap => {
             scheduleEntriesData = snap.docs.map(d => ({id: d.id, ...d.data()}));
-            if(currentView === 'schedule') renderCurrentView();
+            if(currentView === 'schedule' && !window.hasUnsavedScheduleChanges) {
+               renderCurrentView();
+            }
           },
           handleSnapshotError
         );
