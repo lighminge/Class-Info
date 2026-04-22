@@ -813,13 +813,10 @@ service cloud.firestore {
             throw new Error('MISSING_API_KEY');
         }
 
-        let modelName = 'gemini-2.5-flash';
-        // 若使用系統內建測試 Key，強制切換至預覽版模型以符合環境限制
-        if (activeKey === apiKey && apiKey !== "") {
-            modelName = 'gemini-2.5-flash-preview-09-2025';
-        }
-        
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${activeKey.trim()}`;
+        // 若使用者自備 Key，優先使用 gemini-2.5-flash，並提供備援模型防止單一模型塞車
+        const modelsToTry = (activeKey === apiKey && apiKey !== "") 
+            ? ['gemini-2.5-flash-preview-09-2025'] 
+            : ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
         
         const payload = {
             contents: [{
@@ -846,38 +843,47 @@ service cloud.firestore {
             };
         }
 
-        let retries = 5;
-        let delay = 1000;
         let lastError = null;
 
-        while (retries > 0) {
-            try {
-                const response = await fetch(url, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-                
-                if (!response.ok) {
-                    if (response.status === 400 || response.status === 401 || response.status === 403) {
-                        localStorage.removeItem('bearClass_geminiApiKey');
-                        throw new Error('API_KEY_INVALID');
-                    }
-                    let errMsg = 'API 呼叫失敗';
-                    try { const errData = await response.json(); errMsg = errData.error?.message || errMsg; } catch(e){}
-                    throw new Error(errMsg);
-                }
+        for (const modelName of modelsToTry) {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${activeKey.trim()}`;
+            let retries = 3;
+            let delay = 1500;
 
-                const data = await response.json();
-                return data.candidates?.[0]?.content?.parts?.[0]?.text;
-            } catch (e) {
-                if (e.message === 'API_KEY_INVALID') throw e; 
-                lastError = e;
-                retries--;
-                if (retries === 0) break;
-                await new Promise(r => setTimeout(r, delay));
-                delay *= 2;
+            while (retries > 0) {
+                try {
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    
+                    if (!response.ok) {
+                        if (response.status === 401 || response.status === 403) {
+                            localStorage.removeItem('bearClass_geminiApiKey');
+                            throw new Error('API_KEY_INVALID');
+                        }
+                        let errMsg = 'API 呼叫失敗';
+                        try { const errData = await response.json(); errMsg = errData.error?.message || errMsg; } catch(e){}
+                        throw new Error(errMsg);
+                    }
+
+                    const data = await response.json();
+                    return data.candidates?.[0]?.content?.parts?.[0]?.text;
+                } catch (e) {
+                    if (e.message === 'API_KEY_INVALID') throw e; 
+                    lastError = e;
+                    retries--;
+                    if (retries === 0) break; // 該模型重試耗盡，換下一個備援模型
+                    await new Promise(r => setTimeout(r, delay));
+                    delay *= 2;
+                }
             }
+        }
+        
+        // 將系統英文錯誤訊息轉換為友善的中文提示
+        if (lastError && lastError.message.includes('high demand')) {
+             throw new Error('目前 Google AI 伺服器負載過高 (High demand)，請稍後幾分鐘再試。');
         }
         throw lastError;
     };
