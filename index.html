@@ -633,7 +633,6 @@ service cloud.firestore {
         localStorage.setItem('bearClass_geminiApiKey', trimmed);
         const inputs = document.querySelectorAll('input[id^="api-key-input"]');
         inputs.forEach(input => {
-             // 確保不會覆蓋掉正在打字的輸入框游標
              if (input.value !== trimmed && input !== document.activeElement) {
                  input.value = trimmed;
              }
@@ -875,7 +874,7 @@ service cloud.firestore {
                     const data = await response.json();
                     return data.candidates?.[0]?.content?.parts?.[0]?.text;
                 } catch (e) {
-                    if (e.message === 'API_KEY_INVALID' || e.message === 'QUOTA_EXCEEDED' || (e.message && e.message.toLowerCase().includes('quota'))) {
+                    if (e.message === 'API_KEY_INVALID' || e.message === 'QUOTA_EXCEEDED' || (e.message && typeof e.message === 'string' && e.message.toLowerCase().includes('quota'))) {
                         // 遇到額度限制或無效金鑰，直接拋出不再重試與切換模型，避免鎖定
                         throw new Error(e.message === 'API_KEY_INVALID' ? 'API_KEY_INVALID' : 'QUOTA_EXCEEDED'); 
                     }
@@ -889,7 +888,7 @@ service cloud.firestore {
         }
         
         // 將系統英文錯誤訊息轉換為友善的中文提示
-        if (lastError && lastError.message.includes('high demand')) {
+        if (lastError && lastError.message && lastError.message.includes('high demand')) {
              throw new Error('目前 Google AI 伺服器負載過高 (High demand)，請稍後幾分鐘再試。');
         }
         throw lastError;
@@ -1377,6 +1376,15 @@ service cloud.firestore {
         const file = event.target.files[0];
         if (!file) return;
 
+        let activeKey = localStorage.getItem('bearClass_geminiApiKey');
+        if (!activeKey && apiKey) activeKey = apiKey; 
+
+        if (!activeKey || activeKey.trim() === '') {
+            window.showAlert('⚠️ 請先在上方欄位貼上您的 Google Gemini API Key 才能使用 AI 功能喔！');
+            event.target.value = ''; 
+            return; 
+        }
+
         const loadingScreen = document.getElementById('loading-screen');
         loadingScreen.classList.remove('hidden-view');
         loadingScreen.innerHTML = '<div class="text-center">🪄 AI 正在努力閱讀您的行事曆...<br><span class="text-sm mt-2 text-yellow-200 block">這可能需要幾秒鐘，請耐心等候</span></div>';
@@ -1409,8 +1417,8 @@ service cloud.firestore {
 
             const finalPrompt = base64Data ? promptText : promptText + "\n\n=== 行事曆文字內容開始 ===\n" + extractedText;
 
-            // 呼叫統一的 API 模組
-            const textResponse = await callGemini(finalPrompt, true, base64Data, mimeType);
+            let textResponse = await callGemini(finalPrompt, true, base64Data, mimeType);
+            textResponse = textResponse.replace(/^```json/g, '').replace(/```$/g, '').trim();
             const parsedData = JSON.parse(textResponse);
 
             parsedData.forEach((week, index) => {
@@ -1825,7 +1833,6 @@ service cloud.firestore {
                   </div>
               </div>
               
-              <!-- 每日點名摘要 -->
               <div id="sch-daily-att-${index}" class="flex justify-between items-center bg-black/30 px-3 py-2 rounded-lg border border-white/20 text-sm font-bold shadow-inner">
                   <span class="text-green-100">在籍: 0</span>
                   <span class="text-yellow-300">出席: 0</span>
@@ -1839,7 +1846,6 @@ service cloud.firestore {
                   </div>
                   <textarea id="sch-act-${index}" class="schedule-textarea min-h-[80px]" oninput="window.hasUnsavedScheduleChanges=true" onblur="saveDailyDoc('${dateStr}', ${index})" placeholder="請輸入教學活動..."></textarea>
                   
-                  <!-- AI 學習指標區塊 (包含 Flexbox 排版與複製按鈕) -->
                   <div id="sch-ind-container-${index}" class="hidden mt-1 flex-col items-end gap-1">
                       <textarea id="sch-ind-${index}" class="schedule-textarea min-h-[60px] text-indigo-100 border-indigo-400/50 bg-indigo-900/30 text-sm placeholder-indigo-300/50 w-full" oninput="window.hasUnsavedScheduleChanges=true" onblur="saveDailyDoc('${dateStr}', ${index})" placeholder="AI 學習指標參考..."></textarea>
                       <button onclick="copyText('sch-ind-${index}')" class="text-xs bg-indigo-500/70 hover:bg-indigo-400 text-white px-2 py-1 rounded shadow flex items-center gap-1 transition-colors border border-indigo-400"><i data-lucide="copy" class="w-3 h-3"></i> 複製內容</button>
@@ -1935,7 +1941,6 @@ service cloud.firestore {
             return;
         }
 
-        // 呼叫統一的 API 模組
         let activeKey = localStorage.getItem('bearClass_geminiApiKey');
         if (!activeKey && apiKey) activeKey = apiKey; 
 
