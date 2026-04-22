@@ -209,7 +209,7 @@ service cloud.firestore {
       <!-- AI 金鑰設定區 -->
       <div class="chalk-box flex items-center gap-3 py-2 px-4">
         <label class="text-sm font-bold text-yellow-200 flex items-center gap-1"><i data-lucide="key" class="w-4 h-4"></i> AI 金鑰 (API Key)：</label>
-        <input type="password" id="api-key-input-annual" class="chalk-input flex-1 text-sm bg-black/10" placeholder="請貼上您的 Google Gemini API Key 以啟用 AI 檔案解析..." onchange="updateApiKey(this.value)">
+        <input type="password" id="api-key-input-annual" class="chalk-input flex-1 text-sm bg-black/10" placeholder="請貼上您的 Google Gemini API Key 以啟用 AI 檔案解析..." oninput="updateApiKey(this.value)">
         <button onclick="toggleApiKeyVisibility('api-key-input-annual')" class="text-white/50 hover:text-white" title="顯示/隱藏"><i data-lucide="eye" class="w-4 h-4"></i></button>
       </div>
 
@@ -416,7 +416,7 @@ service cloud.firestore {
       <!-- AI 金鑰設定區 -->
       <div class="chalk-box flex items-center gap-3 py-2 px-4">
         <label class="text-sm font-bold text-yellow-200 flex items-center gap-1"><i data-lucide="key" class="w-4 h-4"></i> AI 金鑰 (API Key)：</label>
-        <input type="password" id="api-key-input-schedule" class="chalk-input flex-1 text-sm bg-black/10" placeholder="請貼上您的 Google Gemini API Key 以啟用 AI 學習指標分析..." onchange="updateApiKey(this.value)">
+        <input type="password" id="api-key-input-schedule" class="chalk-input flex-1 text-sm bg-black/10" placeholder="請貼上您的 Google Gemini API Key 以啟用 AI 學習指標分析..." oninput="updateApiKey(this.value)">
         <button onclick="toggleApiKeyVisibility('api-key-input-schedule')" class="text-white/50 hover:text-white" title="顯示/隱藏"><i data-lucide="eye" class="w-4 h-4"></i></button>
       </div>
 
@@ -632,7 +632,12 @@ service cloud.firestore {
         const trimmed = val.trim();
         localStorage.setItem('bearClass_geminiApiKey', trimmed);
         const inputs = document.querySelectorAll('input[id^="api-key-input"]');
-        inputs.forEach(input => input.value = trimmed);
+        inputs.forEach(input => {
+             // 確保不會覆蓋掉正在打字的輸入框游標
+             if (input.value !== trimmed && input !== document.activeElement) {
+                 input.value = trimmed;
+             }
+        });
     };
 
     window.toggleApiKeyVisibility = (id) => {
@@ -798,6 +803,84 @@ service cloud.firestore {
 
     document.getElementById('header-month').innerText = `${today.getMonth()+1}月`;
     document.getElementById('header-date').innerText = today.getDate();
+
+    // ================= 共用 Gemini API 呼叫模組 =================
+    const callGemini = async (prompt, isJson = false, base64Data = null, mimeType = null) => {
+        let activeKey = localStorage.getItem('bearClass_geminiApiKey');
+        if (!activeKey && apiKey) activeKey = apiKey; 
+
+        if (!activeKey || activeKey.trim() === '') {
+            throw new Error('MISSING_API_KEY');
+        }
+
+        let modelName = 'gemini-2.5-flash';
+        // 若使用系統內建測試 Key，強制切換至預覽版模型以符合環境限制
+        if (activeKey === apiKey && apiKey !== "") {
+            modelName = 'gemini-2.5-flash-preview-09-2025';
+        }
+        
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${activeKey.trim()}`;
+        
+        const payload = {
+            contents: [{
+                parts: base64Data 
+                    ? [{ text: prompt }, { inlineData: { mimeType, data: base64Data } }]
+                    : [{ text: prompt }]
+            }],
+            generationConfig: { temperature: 0.2 }
+        };
+
+        if (isJson) {
+            payload.generationConfig.responseMimeType = "application/json";
+            payload.generationConfig.responseSchema = {
+                type: "ARRAY",
+                items: {
+                    type: "OBJECT",
+                    properties: {
+                        weekNum: { type: "INTEGER" },
+                        events: { type: "STRING" },
+                        theme: { type: "STRING" },
+                        obj: { type: "STRING" }
+                    }
+                }
+            };
+        }
+
+        let retries = 5;
+        let delay = 1000;
+        let lastError = null;
+
+        while (retries > 0) {
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                
+                if (!response.ok) {
+                    if (response.status === 400 || response.status === 401 || response.status === 403) {
+                        localStorage.removeItem('bearClass_geminiApiKey');
+                        throw new Error('API_KEY_INVALID');
+                    }
+                    let errMsg = 'API 呼叫失敗';
+                    try { const errData = await response.json(); errMsg = errData.error?.message || errMsg; } catch(e){}
+                    throw new Error(errMsg);
+                }
+
+                const data = await response.json();
+                return data.candidates?.[0]?.content?.parts?.[0]?.text;
+            } catch (e) {
+                if (e.message === 'API_KEY_INVALID') throw e; 
+                lastError = e;
+                retries--;
+                if (retries === 0) break;
+                await new Promise(r => setTimeout(r, delay));
+                delay *= 2;
+            }
+        }
+        throw lastError;
+    };
 
     // ================= 點名簿系統 (浮動工具) =================
     window.toggleAttendance = () => {
@@ -1281,15 +1364,6 @@ service cloud.firestore {
         const file = event.target.files[0];
         if (!file) return;
 
-        let activeKey = localStorage.getItem('bearClass_geminiApiKey');
-        if (!activeKey && apiKey) activeKey = apiKey; 
-
-        if (!activeKey || activeKey.trim() === '') {
-            window.showAlert('⚠️ 請先在上方欄位貼上您的 Google Gemini API Key 才能使用 AI 功能喔！');
-            event.target.value = ''; 
-            return; 
-        }
-
         const loadingScreen = document.getElementById('loading-screen');
         loadingScreen.classList.remove('hidden-view');
         loadingScreen.innerHTML = '<div class="text-center">🪄 AI 正在努力閱讀您的行事曆...<br><span class="text-sm mt-2 text-yellow-200 block">這可能需要幾秒鐘，請耐心等候</span></div>';
@@ -1320,64 +1394,10 @@ service cloud.firestore {
 如果提供的檔案資料不足 21 週，剩餘的週數請依然產生，但內容保留空字串。
 請絕對只能回傳 JSON 陣列，不要包含任何 Markdown 代碼區塊(如 \`\`\`json)或其他說明的文字。`;
 
-            const payload = {
-                contents: [{
-                    parts: base64Data
-                        ? [{ text: promptText }, { inlineData: { mimeType, data: base64Data } }]
-                        : [{ text: promptText + "\n\n=== 行事曆文字內容開始 ===\n" + extractedText }]
-                }],
-                generationConfig: {
-                    responseMimeType: "application/json",
-                    responseSchema: {
-                        type: "ARRAY",
-                        items: {
-                            type: "OBJECT",
-                            properties: {
-                                weekNum: { type: "INTEGER" },
-                                events: { type: "STRING" },
-                                theme: { type: "STRING" },
-                                obj: { type: "STRING" }
-                            }
-                        }
-                    }
-                }
-            };
+            const finalPrompt = base64Data ? promptText : promptText + "\n\n=== 行事曆文字內容開始 ===\n" + extractedText;
 
-            let fetchUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
-            if (activeKey && activeKey !== apiKey) {
-                fetchUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${activeKey}`;
-            }
-
-            let retries = 3;
-            let delay = 1000;
-            let resJson = null;
-            
-            while (retries > 0) {
-                try {
-                    const response = await fetch(fetchUrl, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    });
-                    if (!response.ok) {
-                        if (response.status === 400 || response.status === 403) {
-                             localStorage.removeItem('bearClass_geminiApiKey');
-                             throw new Error('API_KEY_INVALID');
-                        }
-                        throw new Error(`HTTP Error ${response.status}`);
-                    }
-                    resJson = await response.json();
-                    break;
-                } catch(e) {
-                    if(e.message === 'API_KEY_INVALID') throw e;
-                    retries--;
-                    if(retries === 0) throw e;
-                    await new Promise(r => setTimeout(r, delay));
-                    delay *= 2;
-                }
-            }
-
-            const textResponse = resJson.candidates?.[0]?.content?.parts?.[0]?.text;
+            // 呼叫統一的 API 模組
+            const textResponse = await callGemini(finalPrompt, true, base64Data, mimeType);
             const parsedData = JSON.parse(textResponse);
 
             parsedData.forEach((week, index) => {
@@ -1400,9 +1420,11 @@ service cloud.firestore {
         } catch (e) {
             console.error("AI Parse Error:", e);
             if (e.message === 'API_KEY_INVALID') {
-                window.showAlert('❌ 解析失敗！您的 API 金鑰無效或配額已耗盡，請重新載入後輸入正確的金鑰。');
+                window.showAlert('❌ 解析失敗！您的 API 金鑰無效或沒有權限，請確認上方的金鑰輸入正確。');
+            } else if (e.message === 'MISSING_API_KEY') {
+                window.showAlert('⚠️ 請先在上方欄位貼上您的 Google Gemini API Key 才能使用 AI 功能喔！');
             } else {
-                window.showAlert('❌ 解析失敗！<br>可能是檔案過大、格式不支援或 API 連線異常。請確認上傳的為清晰的圖片、PDF 或 DOCX。');
+                window.showAlert(`❌ 解析失敗！<br>錯誤：${e.message}<br>可能是檔案過大或格式不支援，請嘗試純文字檔或清晰圖片。`);
             }
         } finally {
             loadingScreen.classList.add('hidden-view');
@@ -1788,6 +1810,7 @@ service cloud.firestore {
                   </div>
               </div>
               
+              <!-- 每日點名摘要 -->
               <div id="sch-daily-att-${index}" class="flex justify-between items-center bg-black/30 px-3 py-2 rounded-lg border border-white/20 text-sm font-bold shadow-inner">
                   <span class="text-green-100">在籍: 0</span>
                   <span class="text-yellow-300">出席: 0</span>
@@ -1897,6 +1920,7 @@ service cloud.firestore {
             return;
         }
 
+        // 呼叫統一的 API 模組
         let activeKey = localStorage.getItem('bearClass_geminiApiKey');
         if (!activeKey && apiKey) activeKey = apiKey; 
 
@@ -1914,33 +1938,7 @@ service cloud.firestore {
         try {
             const promptText = `你是一個臺灣幼教專家。請根據以下幼兒園的「教學活動」內容，自動比對並推薦對應的「幼兒園教保活動課程大綱（六大領域：身體動作、認知、語文、社會、情緒、美感）」的「學習指標」。\n\n非常重要：學習指標的編碼格式，第二階的內容一定是「幼」這個字（例如：身-幼-1-1-1、認-幼-2-1-1）。請絕對不要產生沒有「幼」字的編碼！\n\n請簡明扼要地列出2~3個最相關的指標，直接輸出純文字即可，不需Markdown格式。\n\n教學活動內容：\n${actText}`;
             
-            const payload = {
-                contents: [{ parts: [{ text: promptText }] }],
-                generationConfig: { temperature: 0.2 }
-            };
-
-            // 自動根據使用者的 Key 判斷要呼叫的模型
-            let fetchUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
-            if (activeKey && activeKey !== apiKey) {
-                // 如果是使用者自訂的 Key，必須切換到公開穩定的模型
-                fetchUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${activeKey}`;
-            }
-
-            const response = await fetch(fetchUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-            
-            if (!response.ok) {
-                if (response.status === 400 || response.status === 403) {
-                     localStorage.removeItem('bearClass_geminiApiKey');
-                     throw new Error('API_KEY_INVALID');
-                }
-                throw new Error('API Error');
-            }
-            const resJson = await response.json();
-            const resultText = resJson.candidates?.[0]?.content?.parts?.[0]?.text || '無法分析出學習指標。';
+            const resultText = await callGemini(promptText, false);
             
             const indEl = document.getElementById(`sch-ind-${index}`);
             const indContainer = document.getElementById(`sch-ind-container-${index}`);
@@ -1953,9 +1951,11 @@ service cloud.firestore {
         } catch (e) {
             console.error("AI Indicator Error:", e);
             if (e.message === 'API_KEY_INVALID') {
-                window.showAlert('❌ AI 分析失敗！您的 API 金鑰無效或配額已耗盡，請重新輸入正確的金鑰。');
+                window.showAlert('❌ AI 分析失敗！您的 API 金鑰無效或沒有權限，請確認上方的金鑰輸入正確。');
+            } else if (e.message === 'MISSING_API_KEY') {
+                window.showAlert('⚠️ 請先在上方欄位貼上您的 Google Gemini API Key 才能使用 AI 功能喔！');
             } else {
-                window.showAlert('❌ 分析失敗！可能是連線異常或 API 限制，請稍後再試。');
+                window.showAlert(`❌ 分析失敗！<br>錯誤訊息：${e.message}<br>請稍後再試。`);
             }
         } finally {
             btn.innerHTML = oldHtml;
@@ -2255,6 +2255,7 @@ service cloud.firestore {
           collection(db, "bear_attendance"), 
           snap => {
             attendanceData = snap.docs.map(d => ({id: d.id, ...d.data()}));
+            window.isAttendanceLoaded = true;
             if(currentView === 'schedule') {
                 syncAttendanceDataToUI(); 
             }
