@@ -863,6 +863,10 @@ service cloud.firestore {
                             localStorage.removeItem('bearClass_geminiApiKey');
                             throw new Error('API_KEY_INVALID');
                         }
+                        // 攔截 429 請求次數過多 (Quota Exceeded) 的錯誤
+                        if (response.status === 429) {
+                            throw new Error('QUOTA_EXCEEDED');
+                        }
                         let errMsg = 'API 呼叫失敗';
                         try { const errData = await response.json(); errMsg = errData.error?.message || errMsg; } catch(e){}
                         throw new Error(errMsg);
@@ -871,7 +875,10 @@ service cloud.firestore {
                     const data = await response.json();
                     return data.candidates?.[0]?.content?.parts?.[0]?.text;
                 } catch (e) {
-                    if (e.message === 'API_KEY_INVALID') throw e; 
+                    if (e.message === 'API_KEY_INVALID' || e.message === 'QUOTA_EXCEEDED' || (e.message && e.message.toLowerCase().includes('quota'))) {
+                        // 遇到額度限制或無效金鑰，直接拋出不再重試與切換模型，避免鎖定
+                        throw new Error(e.message === 'API_KEY_INVALID' ? 'API_KEY_INVALID' : 'QUOTA_EXCEEDED'); 
+                    }
                     lastError = e;
                     retries--;
                     if (retries === 0) break; // 該模型重試耗盡，換下一個備援模型
@@ -1429,6 +1436,8 @@ service cloud.firestore {
                 window.showAlert('❌ 解析失敗！您的 API 金鑰無效或沒有權限，請確認上方的金鑰輸入正確。');
             } else if (e.message === 'MISSING_API_KEY') {
                 window.showAlert('⚠️ 請先在上方欄位貼上您的 Google Gemini API Key 才能使用 AI 功能喔！');
+            } else if (e.message === 'QUOTA_EXCEEDED') {
+                window.showAlert('⏳ 免費額度限制 (Quota Exceeded)！<br>您呼叫 AI 的頻率太快了，請「等待約 1 分鐘」後再試一次。');
             } else {
                 window.showAlert(`❌ 解析失敗！<br>錯誤：${e.message}<br>可能是檔案過大或格式不支援，請嘗試純文字檔或清晰圖片。`);
             }
@@ -1960,6 +1969,8 @@ service cloud.firestore {
                 window.showAlert('❌ AI 分析失敗！您的 API 金鑰無效或沒有權限，請確認上方的金鑰輸入正確。');
             } else if (e.message === 'MISSING_API_KEY') {
                 window.showAlert('⚠️ 請先在上方欄位貼上您的 Google Gemini API Key 才能使用 AI 功能喔！');
+            } else if (e.message === 'QUOTA_EXCEEDED') {
+                window.showAlert('⏳ 免費額度限制 (Quota Exceeded)！<br>您呼叫 AI 的頻率太快了，請「等待約 1 分鐘」後再試一次。');
             } else {
                 window.showAlert(`❌ 分析失敗！<br>錯誤訊息：${e.message}<br>請稍後再試。`);
             }
