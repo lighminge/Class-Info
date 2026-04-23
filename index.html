@@ -89,8 +89,9 @@
 <body class="p-4 md:p-8">
 
   <!-- 載入中畫面 -->
-  <div id="loading-screen" class="fixed inset-0 bg-[#2b5b3f] z-50 flex items-center justify-center text-2xl font-bold flex-col gap-4 text-center">
-    載入中 🐻...
+  <div id="loading-screen" class="fixed inset-0 bg-[#2b5b3f] z-50 flex items-center justify-center text-2xl font-bold flex-col gap-4 text-center transition-opacity duration-300">
+    <div class="animate-bounce mb-2 text-6xl">🐻</div>
+    <div>系統載入中...</div>
   </div>
 
   <!-- 資料庫權限錯誤提示 -->
@@ -190,10 +191,17 @@
         <div class="mt-auto pt-6 text-2xl">🐾</div>
       </div>
       <!-- 幼兒園學習指標 -->
-      <div onclick="navigate('indicators')" class="chalk-box flex flex-col items-center text-center cursor-pointer hover:-translate-y-2 hover:shadow-2xl transition-transform group lg:col-span-2">
+      <div onclick="navigate('indicators')" class="chalk-box flex flex-col items-center text-center cursor-pointer hover:-translate-y-2 hover:shadow-2xl transition-transform group">
         <div class="text-yellow-300 group-hover:scale-110 transition-transform mb-4"><i data-lucide="target" class="w-12 h-12"></i></div>
         <h2 class="text-2xl font-bold mb-2 tracking-wider">幼兒園學習指標</h2>
         <p class="text-green-100 text-sm">六大領域學習指標查詢與檢索、教案撰寫輔助</p>
+        <div class="mt-auto pt-6 text-2xl">🐾</div>
+      </div>
+      <!-- 訪談預約 -->
+      <div onclick="window.open('https://lighminge.github.io/Booking-trip/', '_blank')" class="chalk-box flex flex-col items-center text-center cursor-pointer hover:-translate-y-2 hover:shadow-2xl transition-transform group">
+        <div class="text-yellow-300 group-hover:scale-110 transition-transform mb-4"><i data-lucide="phone-call" class="w-12 h-12"></i></div>
+        <h2 class="text-2xl font-bold mb-2 tracking-wider">訪談預約</h2>
+        <p class="text-green-100 text-sm">家長訪談預約與時段管理</p>
         <div class="mt-auto pt-6 text-2xl">🐾</div>
       </div>
     </div>
@@ -276,13 +284,6 @@
 
     <!-- 視圖 5: 學校年度行事曆 -->
     <div id="view-annual" class="max-w-[1400px] mx-auto space-y-6 hidden-view">
-      <!-- AI 金鑰設定區 (新增) -->
-      <div class="chalk-box flex flex-col md:flex-row items-center gap-3 py-3 px-4 mb-4 border border-yellow-500/50 bg-black/20">
-        <label class="text-sm font-bold text-yellow-200 flex items-center gap-1 whitespace-nowrap"><i data-lucide="key" class="w-4 h-4"></i> AI 金鑰 (API Key)：</label>
-        <input type="password" id="api-key-input-annual" class="chalk-input flex-1 text-sm bg-black/30 w-full" placeholder="請貼上您的 Google Gemini API Key 以啟用 AI 功能..." oninput="updateApiKey(this.value)">
-        <button onclick="toggleApiKeyVisibility('api-key-input-annual')" class="text-white/50 hover:text-white" title="顯示/隱藏"><i data-lucide="eye" class="w-5 h-5"></i></button>
-      </div>
-
       <div class="chalk-box flex flex-wrap gap-6 items-end justify-between relative overflow-hidden">
         <div class="flex flex-wrap gap-4 items-end relative z-10">
           <div>
@@ -417,9 +418,10 @@
 
       <!-- 藏書清單分頁 -->
       <div id="book-tab-list" class="space-y-8">
-        <div class="chalk-box">
-          <h2 class="text-2xl font-bold mb-4">新增藏書 / 借閱紀錄</h2>
+        <div class="chalk-box transition-all duration-500 ease-in-out" id="book-form-wrapper">
+          <h2 id="book-form-title" class="text-2xl font-bold mb-4 flex items-center gap-2"><i data-lucide="plus-circle"></i> 新增藏書 / 借閱紀錄</h2>
           <form id="form-book" onsubmit="handleBookSubmit(event)" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <input type="hidden" id="book-edit-id" value="">
             <input required type="text" id="book-title" placeholder="書名" class="chalk-input">
             <input type="text" id="book-author" placeholder="作者" class="chalk-input">
             <select id="book-isBorrowed" onchange="toggleBorrowFields()" class="chalk-input text-black bg-white">
@@ -433,24 +435,53 @@
               <input type="date" id="book-borrowDate" class="chalk-input" title="借出日期">
               <input type="date" id="book-returnDate" class="chalk-input" title="預計還書日期">
             </div>
-            <div class="md:col-span-3 flex justify-end mt-2">
+            <div class="md:col-span-3 flex justify-end gap-2 mt-2">
+              <button type="button" id="btn-cancel-book" onclick="resetBookForm()" class="chalk-btn hidden-view">取消</button>
               <button type="submit" class="chalk-btn bg-yellow-600/50">儲存書籍</button>
             </div>
           </form>
         </div>
+        
         <div class="chalk-box overflow-x-auto">
-          <h2 class="text-2xl font-bold mb-4">藏書清單 (共 <span id="book-count">0</span> 本)</h2>
-          <table class="w-full text-left border-collapse">
+          <h2 class="text-2xl font-bold mb-4 flex flex-col md:flex-row md:items-center gap-2 justify-between">
+            <div class="flex items-center gap-2">
+              <i data-lucide="book-open"></i> 藏書清單
+            </div>
+            <div class="text-sm font-normal bg-black/30 px-4 py-2 rounded-full border border-white/20 shadow-inner flex items-center gap-3">
+              <span>總館藏: <span id="book-count" class="font-bold text-yellow-300 text-lg">0</span> 本</span>
+              <span class="text-white/30">|</span>
+              <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-red-400"></span> 已借閱: <span id="book-borrowed-count" class="font-bold text-red-300">0</span> 本</span>
+              <span class="text-white/30">|</span>
+              <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-green-400"></span> 在館內: <span id="book-available-count" class="font-bold text-green-300">0</span> 本</span>
+            </div>
+          </h2>
+          <table class="w-full text-left border-collapse min-w-[800px]">
             <thead>
               <tr class="border-b-2 border-white/50">
-                <th class="p-2">書名</th><th class="p-2">作者</th><th class="p-2">狀態</th>
-                <th class="p-2">借閱人</th><th class="p-2">借出日</th><th class="p-2">操作</th>
+                <th class="p-2 w-12 text-center text-white/50 font-normal">#</th>
+                <th class="p-2">書名</th>
+                <th class="p-2 w-32">作者</th>
+                <th class="p-2 w-24">狀態</th>
+                <th class="p-2 w-32">借閱人</th>
+                <th class="p-2 w-32">借出日</th>
+                <th class="p-2 w-32 text-center">操作</th>
               </tr>
             </thead>
             <tbody id="book-table-body">
                <!-- 藏書列表動態產生 -->
             </tbody>
           </table>
+          
+          <!-- 藏書分頁控制 -->
+          <div id="book-pagination" class="flex justify-center items-center gap-4 mt-6 pt-4 border-t border-white/10 hidden-view">
+             <button onclick="navBookPage(-1)" id="btn-book-prev" class="chalk-btn border-white/30 text-white/70 hover:bg-white/10 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed">
+                <i data-lucide="chevron-left" class="w-4 h-4"></i> 上一頁
+             </button>
+             <span class="text-sm text-yellow-100 font-bold" id="book-page-info">第 1 / 1 頁</span>
+             <button onclick="navBookPage(1)" id="btn-book-next" class="chalk-btn border-white/30 text-white/70 hover:bg-white/10 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed">
+                下一頁 <i data-lucide="chevron-right" class="w-4 h-4"></i>
+             </button>
+          </div>
         </div>
       </div>
 
@@ -464,7 +495,7 @@
           </div>
           <div class="mb-4">
             <label class="block mb-2 text-yellow-200">2. 勾選欲租借的書</label>
-            <div id="auto-book-checkboxes" class="max-h-60 overflow-y-auto border border-white/30 p-2 rounded">
+            <div id="auto-book-checkboxes" class="max-h-60 overflow-y-auto border border-white/30 p-2 rounded custom-scrollbar">
               <!-- Checkboxes 產生區 -->
             </div>
           </div>
@@ -472,7 +503,7 @@
             產生每週借閱表
           </button>
         </div>
-        <div class="chalk-box lg:col-span-2 overflow-x-auto">
+        <div class="chalk-box lg:col-span-2 overflow-x-auto custom-scrollbar">
           <h2 class="text-xl font-bold mb-4">自動安排結果</h2>
           <div id="auto-arrange-results" class="space-y-6">
             <div class="text-center text-gray-300 py-10">請設定參數並點擊產生</div>
@@ -483,13 +514,6 @@
 
     <!-- 視圖 4: 行事曆與排程 -->
     <div id="view-schedule" class="flex flex-col gap-6 hidden-view max-w-[1600px] mx-auto w-full">
-      <!-- AI 金鑰設定區 (新增) -->
-      <div class="chalk-box flex flex-col md:flex-row items-center gap-3 py-3 px-4 mb-2 border border-yellow-500/50 bg-black/20">
-        <label class="text-sm font-bold text-yellow-200 flex items-center gap-1 whitespace-nowrap"><i data-lucide="key" class="w-4 h-4"></i> AI 金鑰 (API Key)：</label>
-        <input type="password" id="api-key-input-schedule" class="chalk-input flex-1 text-sm bg-black/30 w-full" placeholder="請貼上您的 Google Gemini API Key 以啟用 AI 學習指標分析..." oninput="updateApiKey(this.value)">
-        <button onclick="toggleApiKeyVisibility('api-key-input-schedule')" class="text-white/50 hover:text-white" title="顯示/隱藏"><i data-lucide="eye" class="w-5 h-5"></i></button>
-      </div>
-
       <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
         <!-- 迷你月曆 -->
         <div class="chalk-box lg:col-span-1 flex flex-col items-center">
@@ -688,6 +712,10 @@
     window.currentRenderedSemester = '下學期';
     window.isAttendanceLoaded = false;
     window.listenersStarted = false; // 防止重複掛載資料監聽器
+    
+    // 藏書分頁狀態
+    let bookCurrentPage = 1;
+    const BOOKS_PER_PAGE = 10;
 
     window.addEventListener('beforeunload', (e) => {
       if (window.hasUnsavedAnnualChanges || window.hasUnsavedScheduleChanges) {
@@ -871,99 +899,6 @@
 
     document.getElementById('header-month').innerText = `${today.getMonth()+1}月`;
     document.getElementById('header-date').innerText = today.getDate();
-
-    const callGemini = async (prompt, isJson = false, base64Data = null, mimeType = null) => {
-        const isCanvasEnv = typeof __firebase_config !== 'undefined';
-        const canvasApiKey = typeof __gemini_api_key !== 'undefined' ? __gemini_api_key : "";
-        
-        let activeKey = localStorage.getItem('bearClass_customApiKey');
-        
-        if (!activeKey) {
-            const uiKey1 = document.getElementById('api-key-input-annual')?.value;
-            const uiKey2 = document.getElementById('api-key-input-schedule')?.value;
-            activeKey = uiKey1 || uiKey2 || apiKey;
-        }
-
-        // 若無自訂 Key，但在 Canvas 內，則借用系統的 Key
-        if (isCanvasEnv && (!activeKey || activeKey.trim() === "")) {
-            activeKey = canvasApiKey;
-        }
-
-        if (!activeKey || activeKey.trim() === "") {
-            throw new Error("MISSING_API_KEY");
-        }
-
-        const isUsingCanvasKey = (activeKey === canvasApiKey);
-        const finalModel = isUsingCanvasKey ? 'gemini-2.5-flash-preview-09-2025' : 'gemini-2.5-flash';
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${finalModel}:generateContent?key=${activeKey}`;
-        
-        const payload = {
-            contents: [{
-                parts: base64Data 
-                    ? [{ text: prompt }, { inlineData: { mimeType, data: base64Data } }]
-                    : [{ text: prompt }]
-            }],
-            generationConfig: { temperature: 0.2 }
-        };
-
-        if (isJson) {
-            payload.generationConfig.responseMimeType = "application/json";
-            payload.generationConfig.responseSchema = {
-                type: "ARRAY",
-                items: {
-                    type: "OBJECT",
-                    properties: {
-                        weekNum: { type: "INTEGER" },
-                        events: { type: "STRING" },
-                        theme: { type: "STRING" },
-                        obj: { type: "STRING" }
-                    }
-                }
-            };
-        }
-
-        const delays = [1000, 2000, 4000, 8000, 16000];
-        let lastError = null;
-
-        for (let attempt = 0; attempt <= 5; attempt++) {
-            try {
-                const response = await fetch(url, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-                
-                if (!response.ok) {
-                    if (response.status === 400 || response.status === 401 || response.status === 403) {
-                        localStorage.removeItem('bearClass_customApiKey');
-                        throw new Error('API_KEY_INVALID');
-                    }
-                    if (response.status === 429) {
-                        throw new Error('QUOTA_EXCEEDED');
-                    }
-                    let errMsg = `HTTP Error ${response.status}`;
-                    try { const errData = await response.json(); errMsg = errData.error?.message || errMsg; } catch(e){}
-                    throw new Error(errMsg);
-                }
-
-                const data = await response.json();
-                return data.candidates?.[0]?.content?.parts?.[0]?.text;
-            } catch (e) {
-                if (e.message === 'API_KEY_INVALID' || e.message === 'QUOTA_EXCEEDED' || (e.message && typeof e.message === 'string' && e.message.toLowerCase().includes('quota'))) {
-                    throw new Error(e.message === 'API_KEY_INVALID' ? 'API_KEY_INVALID' : 'QUOTA_EXCEEDED'); 
-                }
-                lastError = e;
-                if (attempt < 5) {
-                    await new Promise(r => setTimeout(r, delays[attempt]));
-                }
-            }
-        }
-        
-        if (lastError && lastError.message && lastError.message.includes('high demand')) {
-             throw new Error('目前 Google AI 伺服器負載過高，請稍候再試。');
-        }
-        throw lastError;
-    };
 
     // ================= 幼兒園學習指標系統 =================
     let indFilters = { domain: '', ability: '', aspect: '', objective: '', age: 'ALL' };
@@ -1328,6 +1263,7 @@
     };
 
     window.updateAtt = async (studentId) => {
+        if(!currentUser) return;
         const dateStr = document.getElementById('attendance-date').value;
         const statusEl = document.querySelector(`input[name="att_${studentId}"]:checked`);
         const status = statusEl ? statusEl.value : '';
@@ -1629,6 +1565,7 @@
     };
 
     window.saveAnnual = async () => {
+      if(!currentUser) return;
       const yearInput = document.getElementById('annual-year');
       if (!yearInput) return;
 
@@ -1686,12 +1623,11 @@
         const file = event.target.files[0];
         if (!file) return;
 
-        let activeKey = localStorage.getItem('bearClass_customApiKey');
+        let activeKey = localStorage.getItem('bearClass_customApiKey') || apiKey;
 
         if (!activeKey) {
             const uiKey1 = document.getElementById('api-key-input-annual')?.value;
-            const uiKey2 = document.getElementById('api-key-input-schedule')?.value;
-            activeKey = uiKey1 || uiKey2;
+            activeKey = uiKey1 || apiKey;
         }
 
         if (!isCanvasEnv && (!activeKey || activeKey.trim() === '')) {
@@ -1756,7 +1692,7 @@
         } catch (e) {
             console.error("AI Parse Error:", e);
             if (e.message === 'API_KEY_INVALID') {
-                window.showAlert('❌ 解析失敗！您的 API 金鑰無效或沒有權限，請確認上方的金鑰設定正確。');
+                window.showAlert('❌ 解析失敗！您的 API 金鑰無效或沒有權限，請確認上方的金鑰輸入正確。');
             } else if (e.message === 'MISSING_API_KEY') {
                 window.showAlert('⚠️ 請先在上方欄位貼上您的 Google Gemini API Key 才能使用 AI 功能喔！');
             } else if (e.message === 'QUOTA_EXCEEDED') {
@@ -1856,6 +1792,7 @@
 
     window.handleStudentSubmit = async (e) => {
       e.preventDefault();
+      if(!currentUser) return;
       
       const academicYear = document.getElementById('stu-year').value;
       const seatNo = document.getElementById('stu-seatNo').value;
@@ -1931,6 +1868,7 @@
     };
 
     window.deleteStudent = (id) => {
+      if(!currentUser) return;
       window.openConfirm('確定要刪除這筆學生資料嗎？', async () => {
           try {
               await deleteDoc(getDoc("bear_students", id));
@@ -1966,20 +1904,60 @@
       const bookCountEl = document.getElementById('book-count');
       if(bookCountEl) bookCountEl.innerText = booksData.length;
       
+      const borrowedCount = booksData.filter(b => b.isBorrowed === '是').length;
+      const availableCount = booksData.length - borrowedCount;
+      
+      const borrowedEl = document.getElementById('book-borrowed-count');
+      if(borrowedEl) borrowedEl.innerText = borrowedCount;
+      
+      const availableEl = document.getElementById('book-available-count');
+      if(availableEl) availableEl.innerText = availableCount;
+      
       const tbody = document.getElementById('book-table-body');
       
       if(tbody) {
-          tbody.innerHTML = booksData.map(b => `
-            <tr class="border-b border-white/20 hover:bg-white/10">
+          const totalPages = Math.ceil(booksData.length / BOOKS_PER_PAGE) || 1;
+          if (bookCurrentPage > totalPages) bookCurrentPage = totalPages;
+          
+          const startIdx = (bookCurrentPage - 1) * BOOKS_PER_PAGE;
+          const endIdx = startIdx + BOOKS_PER_PAGE;
+          const currentBooks = booksData.slice(startIdx, endIdx);
+
+          tbody.innerHTML = currentBooks.map((b, index) => {
+            const actualIndex = startIdx + index + 1;
+            const isEditing = document.getElementById('book-edit-id')?.value === b.id;
+            const trClass = isEditing ? "bg-yellow-600/30 border-b-2 border-yellow-400 font-bold" : "border-b border-white/20 hover:bg-white/10";
+            
+            return `
+            <tr class="${trClass} transition-colors">
+              <td class="p-2 text-center text-white/50">${actualIndex}</td>
               <td class="p-2 font-bold text-yellow-200">${b.title}</td><td class="p-2">${b.author || ''}</td>
               <td class="p-2"><span class="px-2 py-1 rounded text-xs ${b.isBorrowed==='是'?'bg-red-500/50':'bg-green-500/50'}">${b.isBorrowed === '是' ? '借出中' : '在館內'}</span></td>
               <td class="p-2">${b.borrower || '-'}</td><td class="p-2">${b.borrowDate || '-'}</td>
-              <td class="p-2 flex gap-2">
-                ${b.isBorrowed === '是' ? `<button onclick="returnBook('${b.id}')" class="text-green-300 border border-green-300 px-2 rounded hover:bg-green-300/20 text-sm">歸還</button>` : ''}
+              <td class="p-2 flex justify-center gap-2">
+                <button onclick="editBook('${b.id}')" class="text-yellow-300 hover:scale-110"><i data-lucide="pen-tool" class="w-5 h-5"></i></button>
                 <button onclick="deleteBook('${b.id}')" class="text-red-400 hover:scale-110"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
               </td>
             </tr>
-          `).join('');
+            `;
+          }).join('');
+
+          // 更新分頁按鈕狀態
+          const pageInfo = document.getElementById('book-page-info');
+          if (pageInfo) pageInfo.innerText = `第 ${bookCurrentPage} / ${totalPages} 頁`;
+          
+          const btnPrev = document.getElementById('btn-book-prev');
+          if (btnPrev) btnPrev.disabled = bookCurrentPage === 1;
+          
+          const btnNext = document.getElementById('btn-book-next');
+          if (btnNext) btnNext.disabled = bookCurrentPage === totalPages;
+          
+          const pagination = document.getElementById('book-pagination');
+          if (pagination) {
+              if (booksData.length > BOOKS_PER_PAGE) pagination.classList.remove('hidden-view');
+              else pagination.classList.add('hidden-view');
+          }
+          lucide.createIcons();
       }
 
       const cboxArea = document.getElementById('auto-book-checkboxes');
@@ -1993,9 +1971,21 @@
       }
     };
 
+    window.navBookPage = (dir) => {
+        const totalPages = Math.ceil(booksData.length / BOOKS_PER_PAGE);
+        let newPage = bookCurrentPage + dir;
+        if (newPage < 1) newPage = 1;
+        if (newPage > totalPages) newPage = totalPages;
+        bookCurrentPage = newPage;
+        renderBooks();
+    };
+
     window.handleBookSubmit = async (e) => {
       e.preventDefault();
+      if(!currentUser) return;
       const isBorrowed = document.getElementById('book-isBorrowed').value;
+      const editId = document.getElementById('book-edit-id').value;
+
       const data = {
         title: document.getElementById('book-title').value,
         author: document.getElementById('book-author').value,
@@ -2004,16 +1994,69 @@
         borrowDate: isBorrowed === '是' ? document.getElementById('book-borrowDate').value : '',
         returnDate: isBorrowed === '是' ? document.getElementById('book-returnDate').value : '',
       };
-      await addDoc(getCol("bear_books"), data);
-      document.getElementById('form-book').reset();
-      toggleBorrowFields();
+      
+      if (editId) {
+          await updateDoc(getDoc("bear_books", editId), data);
+      } else {
+          await addDoc(getCol("bear_books"), data);
+      }
+      resetBookForm();
+    };
+
+    window.editBook = (id) => {
+        const b = booksData.find(x => x.id === id);
+        if(!b) return;
+
+        const wrapper = document.getElementById('book-form-wrapper');
+        if (wrapper) {
+            wrapper.classList.add('border-4', 'border-yellow-400', 'bg-yellow-600/30', 'shadow-[0_0_20px_rgba(250,204,21,0.5)]');
+            window.scrollTo({ top: wrapper.offsetTop - 20, behavior: 'smooth' });
+        }
+
+        document.getElementById('book-edit-id').value = id;
+        document.getElementById('book-title').value = b.title;
+        document.getElementById('book-author').value = b.author || '';
+        document.getElementById('book-isBorrowed').value = b.isBorrowed;
+        
+        toggleBorrowFields();
+        
+        if (b.isBorrowed === '是') {
+            document.getElementById('book-borrower').value = b.borrower || '';
+            document.getElementById('book-borrowDate').value = b.borrowDate || '';
+            document.getElementById('book-returnDate').value = b.returnDate || '';
+        }
+        
+        document.getElementById('btn-cancel-book').classList.remove('hidden-view');
+        document.getElementById('book-form-title').innerHTML = '<i data-lucide="pen-tool"></i> 修改藏書資料 <span class="text-sm font-normal text-yellow-200 ml-2 border border-yellow-400 px-2 rounded bg-black/30">(編輯模式)</span>';
+        
+        renderBooks(); // 重新渲染以套用高亮列
+        lucide.createIcons();
+    };
+
+    window.resetBookForm = () => {
+        document.getElementById('form-book').reset();
+        
+        const wrapper = document.getElementById('book-form-wrapper');
+        if (wrapper) {
+            wrapper.classList.remove('border-4', 'border-yellow-400', 'bg-yellow-600/30', 'shadow-[0_0_20px_rgba(250,204,21,0.5)]');
+        }
+
+        document.getElementById('book-edit-id').value = '';
+        document.getElementById('btn-cancel-book').classList.add('hidden-view');
+        document.getElementById('book-form-title').innerHTML = '<i data-lucide="plus-circle"></i> 新增藏書 / 借閱紀錄';
+        toggleBorrowFields();
+        
+        renderBooks(); // 清除高亮
+        lucide.createIcons();
     };
 
     window.returnBook = async (id) => {
+      if(!currentUser) return;
       await updateDoc(getDoc("bear_books", id), { isBorrowed: '否', borrower: '', borrowDate: '', returnDate: '' });
     };
 
     window.deleteBook = (id) => {
+      if(!currentUser) return;
       window.openConfirm('確定要刪除這本藏書紀錄嗎？', async () => {
           try {
               await deleteDoc(getDoc("bear_books", id));
@@ -2172,14 +2215,8 @@
               <div class="flex flex-col gap-1.5">
                   <div class="flex justify-between items-end">
                       <label class="text-sm font-bold text-yellow-200">📌 教學活動</label>
-                      <button onclick="analyzeIndicators(${index}, '${dateStr}')" id="btn-ai-${index}" class="text-xs bg-indigo-600/80 hover:bg-indigo-500 border border-indigo-400 rounded px-2 py-0.5 text-white flex items-center gap-1 transition-colors shadow-lg"><i data-lucide="sparkles" class="w-3 h-3"></i> AI 學習指標</button>
                   </div>
                   <textarea id="sch-act-${index}" class="schedule-textarea min-h-[80px]" oninput="window.hasUnsavedScheduleChanges=true" onblur="saveDailyDoc('${dateStr}', ${index})" placeholder="請輸入教學活動..."></textarea>
-                  
-                  <div id="sch-ind-container-${index}" class="hidden mt-1 flex-col items-end gap-1">
-                      <textarea id="sch-ind-${index}" class="schedule-textarea min-h-[60px] text-indigo-100 border-indigo-400/50 bg-indigo-900/30 text-sm placeholder-indigo-300/50 w-full" oninput="window.hasUnsavedScheduleChanges=true" onblur="saveDailyDoc('${dateStr}', ${index})" placeholder="AI 學習指標參考..."></textarea>
-                      <button onclick="copyText('sch-ind-${index}')" class="text-xs bg-indigo-500/70 hover:bg-indigo-400 text-white px-2 py-1 rounded shadow flex items-center gap-1 transition-colors border border-indigo-400"><i data-lucide="copy" class="w-3 h-3"></i> 複製內容</button>
-                  </div>
               </div>
               <div class="flex flex-col gap-1.5">
                   <label class="text-sm font-bold text-yellow-200">💪 大肌肉運動內容</label>
@@ -2188,14 +2225,8 @@
               <div class="flex flex-col gap-1.5">
                   <div class="flex justify-between items-end">
                       <label class="text-sm font-bold text-yellow-200">💭 教學省思</label>
-                      <button onclick="analyzeReflectionIndicators(${index}, '${dateStr}')" id="btn-ai-ref-${index}" class="text-xs bg-indigo-600/80 hover:bg-indigo-500 border border-indigo-400 rounded px-2 py-0.5 text-white flex items-center gap-1 transition-colors shadow-lg"><i data-lucide="sparkles" class="w-3 h-3"></i> AI 學習指標</button>
                   </div>
                   <textarea id="sch-ref-${index}" class="schedule-textarea min-h-[60px]" oninput="window.hasUnsavedScheduleChanges=true" onblur="saveDailyDoc('${dateStr}', ${index})" placeholder="請輸入教學省思..."></textarea>
-                  
-                  <div id="sch-ref-ind-container-${index}" class="hidden mt-1 flex-col items-end gap-1">
-                      <textarea id="sch-ref-ind-${index}" class="schedule-textarea min-h-[60px] text-indigo-100 border-indigo-400/50 bg-indigo-900/30 text-sm placeholder-indigo-300/50 w-full" oninput="window.hasUnsavedScheduleChanges=true" onblur="saveDailyDoc('${dateStr}', ${index})" placeholder="AI 學習指標參考..."></textarea>
-                      <button onclick="copyText('sch-ref-ind-${index}')" class="text-xs bg-indigo-500/70 hover:bg-indigo-400 text-white px-2 py-1 rounded shadow flex items-center gap-1 transition-colors border border-indigo-400"><i data-lucide="copy" class="w-3 h-3"></i> 複製內容</button>
-                  </div>
               </div>
               <div class="flex flex-col gap-1.5">
                   <label class="text-sm font-bold text-yellow-200">📝 軼事記錄</label>
@@ -2220,28 +2251,12 @@
 
         const actEl = document.getElementById(`sch-act-${index}`);
         if(actEl) actEl.value = entry.activities || '';
-
-        const indEl = document.getElementById(`sch-ind-${index}`);
-        const indContainer = document.getElementById(`sch-ind-container-${index}`);
-        if(indEl && indContainer) {
-            indEl.value = entry.indicators || '';
-            if(entry.indicators) indContainer.classList.remove('hidden');
-            else indContainer.classList.add('hidden');
-        }
         
         const motorEl = document.getElementById(`sch-motor-${index}`);
         if(motorEl) motorEl.value = entry.motor || '';
         
         const refEl = document.getElementById(`sch-ref-${index}`);
         if(refEl) refEl.value = entry.reflection || '';
-
-        const refIndEl = document.getElementById(`sch-ref-ind-${index}`);
-        const refIndContainer = document.getElementById(`sch-ref-ind-container-${index}`);
-        if(refIndEl && refIndContainer) {
-            refIndEl.value = entry.refIndicators || '';
-            if(entry.refIndicators) refIndContainer.classList.remove('hidden');
-            else refIndContainer.classList.add('hidden');
-        }
         
         const aneEl = document.getElementById(`sch-ane-${index}`);
         if(aneEl) aneEl.value = entry.anecdote || '';
@@ -2279,139 +2294,19 @@
         }).catch(e => console.log('Weekly weather fetch err', e));
     };
 
-    // AI 學習指標分析 (教學活動用)
-    window.analyzeIndicators = async (index, dateStr) => {
-        const actText = document.getElementById(`sch-act-${index}`).value;
-        if (!actText || actText.trim() === '') {
-            window.showAlert('⚠️ 請先輸入「教學活動」的內容，AI 才能幫您分析學習指標喔！');
-            return;
-        }
-
-        let activeKey = localStorage.getItem('bearClass_customApiKey');
-
-        if (!activeKey) {
-            const uiKey1 = document.getElementById('api-key-input-annual')?.value;
-            const uiKey2 = document.getElementById('api-key-input-schedule')?.value;
-            activeKey = uiKey1 || uiKey2;
-        }
-
-        if (!isCanvasEnv && (!activeKey || activeKey.trim() === '')) {
-            window.showAlert('⚠️ 請先在上方欄位貼上您的 Google Gemini API Key 才能使用 AI 功能喔！');
-            return; 
-        }
-
-        const btn = document.getElementById(`btn-ai-${index}`);
-        const oldHtml = btn.innerHTML;
-        btn.innerHTML = '<i data-lucide="loader-2" class="w-3 h-3 animate-spin"></i> 分析中...';
-        btn.disabled = true;
-        lucide.createIcons();
-
-        try {
-            const promptText = `你是一個臺灣幼教專家。請根據以下幼兒園的「教學活動」內容，自動比對並推薦對應的「幼兒園教保活動課程大綱（六大領域：身體動作、認知、語文、社會、情緒、美感）」的「學習指標」。\n\n非常重要：學習指標的編碼格式，第二階的內容一定是「幼」這個字（例如：身-幼-1-1-1、認-幼-2-1-1）。請絕對不要產生沒有「幼」字的編碼！\n\n請簡明扼要地列出2~3個最相關的指標，直接輸出純文字即可，不需Markdown格式。\n\n教學活動內容：\n${actText}`;
-            
-            const resultText = await callGemini(promptText, false);
-            
-            const indEl = document.getElementById(`sch-ind-${index}`);
-            const indContainer = document.getElementById(`sch-ind-container-${index}`);
-            indEl.value = resultText.trim();
-            indContainer.classList.remove('hidden');
-            
-            window.hasUnsavedScheduleChanges = true;
-            saveDailyDoc(dateStr, index);
-
-        } catch (e) {
-            console.error("AI Indicator Error:", e);
-            if (e.message === 'API_KEY_INVALID') {
-                window.showAlert('❌ AI 分析失敗！您的 API 金鑰無效或沒有權限，請確認上方金鑰輸入正確。');
-            } else if (e.message === 'MISSING_API_KEY') {
-                window.showAlert('⚠️ 請先在上方欄位貼上您的 Google Gemini API Key 才能使用 AI 功能喔！');
-            } else if (e.message === 'QUOTA_EXCEEDED') {
-                window.showAlert('⏳ 免費額度限制 (Quota Exceeded)！<br>您呼叫 AI 的頻率太快了，請「等待約 1 分鐘」後再試一次。');
-            } else {
-                window.showAlert(`❌ 分析失敗！<br>錯誤訊息：${e.message}<br>請稍後再試。`);
-            }
-        } finally {
-            btn.innerHTML = oldHtml;
-            btn.disabled = false;
-            lucide.createIcons();
-        }
-    };
-
-    // AI 學習指標分析 (教學省思專用)
-    window.analyzeReflectionIndicators = async (index, dateStr) => {
-        const actText = document.getElementById(`sch-ref-${index}`).value;
-        if (!actText || actText.trim() === '') {
-            window.showAlert('⚠️ 請先輸入「教學省思」的內容，AI 才能幫您分析學習指標喔！');
-            return;
-        }
-
-        let activeKey = localStorage.getItem('bearClass_customApiKey');
-
-        if (!activeKey) {
-            const uiKey1 = document.getElementById('api-key-input-annual')?.value;
-            const uiKey2 = document.getElementById('api-key-input-schedule')?.value;
-            activeKey = uiKey1 || uiKey2;
-        }
-
-        if (!isCanvasEnv && (!activeKey || activeKey.trim() === '')) {
-            window.showAlert('⚠️ 請先在上方欄位貼上您的 Google Gemini API Key 才能使用 AI 功能喔！');
-            return; 
-        }
-
-        const btn = document.getElementById(`btn-ai-ref-${index}`);
-        const oldHtml = btn.innerHTML;
-        btn.innerHTML = '<i data-lucide="loader-2" class="w-3 h-3 animate-spin"></i> 分析中...';
-        btn.disabled = true;
-        lucide.createIcons();
-
-        try {
-            const promptText = `你是一個臺灣幼教專家。請根據以下幼兒園的「教學省思」內容，自動比對並推薦對應的「幼兒園教保活動課程大綱（六大領域：身體動作、認知、語文、社會、情緒、美感）」的「學習指標」。\n\n非常重要：學習指標的編碼格式，第二階的內容一定是「幼」這個字（例如：身-幼-1-1-1、認-幼-2-1-1）。請絕對不要產生沒有「幼」字的編碼！\n\n請簡明扼要地列出2~3個最相關的指標，直接輸出純文字即可，不需Markdown格式。\n\n教學省思內容：\n${actText}`;
-            
-            const resultText = await callGemini(promptText, false);
-            
-            const indEl = document.getElementById(`sch-ref-ind-${index}`);
-            const indContainer = document.getElementById(`sch-ref-ind-container-${index}`);
-            indEl.value = resultText.trim();
-            indContainer.classList.remove('hidden');
-            
-            window.hasUnsavedScheduleChanges = true;
-            saveDailyDoc(dateStr, index);
-
-        } catch (e) {
-            console.error("AI Indicator Error:", e);
-            if (e.message === 'API_KEY_INVALID') {
-                window.showAlert('❌ AI 分析失敗！您的 API 金鑰無效或沒有權限，請確認上方金鑰輸入正確。');
-            } else if (e.message === 'MISSING_API_KEY') {
-                window.showAlert('⚠️ 請先在上方欄位貼上您的 Google Gemini API Key 才能使用 AI 功能喔！');
-            } else if (e.message === 'QUOTA_EXCEEDED') {
-                window.showAlert('⏳ 免費額度限制 (Quota Exceeded)！<br>您呼叫 AI 的頻率太快了，請「等待約 1 分鐘」後再試一次。');
-            } else {
-                window.showAlert(`❌ 分析失敗！<br>錯誤訊息：${e.message}<br>請稍後再試。`);
-            }
-        } finally {
-            btn.innerHTML = oldHtml;
-            btn.disabled = false;
-            lucide.createIcons();
-        }
-    };
-
     window.saveDailyDoc = async (dateStr, index) => {
+      if(!currentUser) return;
       const docId = dateStr.replace(/\//g, '-');
       
       const actEl = document.getElementById(`sch-act-${index}`);
       if (!actEl) return;
 
-      const indEl = document.getElementById(`sch-ind-${index}`);
-      const refIndEl = document.getElementById(`sch-ref-ind-${index}`);
-
       const data = {
           date: dateStr,
           weather: document.getElementById(`sch-weather-${index}`).value,
           activities: actEl.value,
-          indicators: indEl ? indEl.value : '',
           motor: document.getElementById(`sch-motor-${index}`).value,
           reflection: document.getElementById(`sch-ref-${index}`).value,
-          refIndicators: refIndEl ? refIndEl.value : '',
           anecdote: document.getElementById(`sch-ane-${index}`).value,
           communication: document.getElementById(`sch-com-${index}`).value
       };
@@ -2491,9 +2386,6 @@
           
           // 強制分頁代碼
           const pageBreak = index > 0 ? '<div style="page-break-before: always;"></div><br clear="all" style="page-break-before:always; mso-break-type:page-break" />' : '';
-          
-          const indHtml = entry.indicators ? `<br><br><span style="color:#4f46e5; font-size:14px; font-weight:bold;">[AI 學習指標參考]</span><br><span style="color:#4f46e5; font-size:13px;">${formatText(entry.indicators)}</span>` : '';
-          const refIndHtml = entry.refIndicators ? `<br><br><span style="color:#4f46e5; font-size:14px; font-weight:bold;">[AI 省思指標參考]</span><br><span style="color:#4f46e5; font-size:13px;">${formatText(entry.refIndicators)}</span>` : '';
 
           htmlContent += `
           ${pageBreak}
@@ -2503,9 +2395,9 @@
               <h3>本週主題：${currentTheme}</h3>
               <div class="att-summary">在籍人數：${totalStudents}人 &nbsp;|&nbsp; 出席：${presentCount}人 &nbsp;|&nbsp; 請假：${leaveCount}人</div>
               <table>
-                  <tr><th>📌 教學活動</th><td>${formatText(entry.activities)}${indHtml}</td></tr>
+                  <tr><th>📌 教學活動</th><td>${formatText(entry.activities)}</td></tr>
                   <tr><th>💪 大肌肉運動</th><td>${formatText(entry.motor)}</td></tr>
-                  <tr><th>💭 教學省思</th><td>${formatText(entry.reflection)}${refIndHtml}</td></tr>
+                  <tr><th>💭 教學省思</th><td>${formatText(entry.reflection)}</td></tr>
                   <tr><th>📝 軼事記錄</th><td>${formatText(entry.anecdote)}</td></tr>
                   <tr><th>🤝 親師溝通</th><td>${formatText(entry.communication)}</td></tr>
               </table>
@@ -2556,6 +2448,7 @@
     };
     window.closeLinkSettings = () => { document.getElementById('sch-link-modal').classList.add('hidden-view'); };
     window.saveLinkSettings = async () => {
+      if(!currentUser) return;
       const newData = {
         academicYear: document.getElementById('set-link-year').value,
         semester: document.getElementById('set-link-semester').value
@@ -2572,6 +2465,7 @@
     };
     window.closeTeacherSettings = () => { document.getElementById('sch-teacher-modal').classList.add('hidden-view'); };
     window.saveTeacherSettings = async () => {
+      if(!currentUser) return;
       const newData = {
         leadTeacher: document.getElementById('set-teacher-lead').value,
         coTeacher: document.getElementById('set-teacher-co').value,
@@ -2723,24 +2617,17 @@
 
     const initAuth = async () => {
       try {
-        // 直接登入使用者的專案 (忽略 Canvas 內部 token 以確保身分綁定一致)
-        await signInAnonymously(auth);
-      } catch (error) { 
-        console.error("Auth Error:", error); 
-        const loadingScreen = document.getElementById('loading-screen');
-        if (loadingScreen) {
-          loadingScreen.innerHTML = `
-            <div class="text-red-400 mb-4">登入失敗 🐻</div>
-            <div class="text-sm font-normal text-white px-8 max-w-md mx-auto text-left bg-black/30 p-4 rounded-xl">
-              ⚠️ <strong>無法連線至您的 Firebase 專案</strong><br><br>
-              系統嘗試登入時被拒絕，可能原因如下：<br>
-              1. 您尚未在 Firebase 控制台啟用<strong>「匿名登入 (Anonymous)」</strong>。<br>
-              2. 該網域尚未加入 Firebase 的授權網域清單。<br><br>
-              請排除問題後重新整理頁面。<br><br>
-              <span class="text-yellow-300 text-xs break-all">錯誤訊息：${error.message}</span>
-            </div>
-          `;
+        await auth.authStateReady();
+        if (!auth.currentUser) {
+          await signInAnonymously(auth);
+        } else {
+          // 若已登入，直接啟動監聽 (這裡必須補上，否則有時會卡載入畫面)
+          currentUser = auth.currentUser;
+          startDataListeners();
         }
+      } catch (error) { 
+        console.error("Auth Error, proceeding without auth:", error); 
+        startDataListeners();
       }
     };
     
@@ -2758,7 +2645,6 @@
               }, 500);
           }
           
-          // 確認成功登入且持有 User Token 後，才啟動資料庫連線，徹底避免權限錯誤
           startDataListeners();
       }
     });
