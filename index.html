@@ -95,20 +95,7 @@
 
   <!-- 資料庫權限錯誤提示 -->
   <div id="db-error-message" class="hidden-view fixed top-4 left-1/2 -translate-x-1/2 bg-red-600/95 text-white px-6 py-4 rounded-xl shadow-2xl z-[100] border-2 border-white backdrop-blur-sm w-11/12 max-w-lg text-center font-bold">
-    ⚠️ 資料庫連線被拒絕 (Permission Denied)<br>
-    <span class="text-sm font-normal mt-2 block text-yellow-100 text-left bg-black/30 p-3 rounded mt-3">
-      您的 Firebase Firestore 規則目前阻擋了存取。<br>
-      請至 <strong>Firebase Console -> Firestore Database -> Rules</strong>，將內容完全取代為以下規則並發布：<br><br>
-      <code class="block whitespace-pre text-xs text-white overflow-x-auto">rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    match /{document=**} {
-      allow read, write: if request.auth != null;
-    }
-  }
-}</code>
-    </span>
-    <button onclick="document.getElementById('db-error-message').classList.add('hidden-view')" class="mt-4 text-sm bg-white text-red-600 px-4 py-1.5 rounded-full hover:bg-gray-200">我知道了，先關閉提示</button>
+    <!-- 錯誤訊息內容由 JS 動態填入 -->
   </div>
 
   <!-- 【左側浮動工具】點名簿 Drawer -->
@@ -661,7 +648,7 @@ service cloud.firestore {
     import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
     import { getFirestore, collection, onSnapshot, doc, setDoc, addDoc, deleteDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-    // 強制統一使用您專屬的 Firebase Config
+    // 系統變數 (強制綁定您的專案資料庫)
     const firebaseConfig = {
       apiKey: "AIzaSyC0jlWhJ-9J969SuuHt3uZVaHJaoOXTMus",
       authDomain: "github-class-info.firebaseapp.com",
@@ -676,30 +663,16 @@ service cloud.firestore {
     const auth = getAuth(app);
     const db = getFirestore(app);
     
-    // ⚠️ 若要在 GitHub 執行進階 AI 分析功能，請於雙引號內填入您專屬的 Google Gemini API Key
+    // ⚠️ 若要在 GitHub 等外部環境執行進階 AI 功能，請於雙引號內填入您專屬的 Google Gemini API Key
     const apiKey = ""; 
     
     let currentUser = null;
     let currentView = 'home';
     let today = new Date();
     
-    // 動態路徑處理 (相容 Canvas 與 GitHub)
-    const isCanvasEnv = typeof __firebase_config !== 'undefined';
-    const activeAppId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-    
-    const getCol = (colName) => {
-        if (isCanvasEnv && currentUser) {
-            return collection(db, 'artifacts', activeAppId, 'users', currentUser.uid, colName);
-        }
-        return collection(db, colName);
-    };
-
-    const getDoc = (colName, docId) => {
-        if (isCanvasEnv && currentUser) {
-            return doc(db, 'artifacts', activeAppId, 'users', currentUser.uid, colName, docId);
-        }
-        return doc(db, colName, docId);
-    };
+    // 徹底解決 Canvas 權限問題：直接使用 Firebase Root Collection (與您 GitHub 設定完全一致)
+    const getCol = (colName) => collection(db, colName);
+    const getDoc = (colName, docId) => doc(db, colName, docId);
 
     let studentsData = [];
     let booksData = [];
@@ -714,6 +687,7 @@ service cloud.firestore {
     window.currentRenderedYear = '114';
     window.currentRenderedSemester = '下學期';
     window.isAttendanceLoaded = false;
+    window.listenersStarted = false; // 防止重複掛載資料監聽器
 
     window.addEventListener('beforeunload', (e) => {
       if (window.hasUnsavedAnnualChanges || window.hasUnsavedScheduleChanges) {
@@ -899,13 +873,28 @@ service cloud.firestore {
     document.getElementById('header-date').innerText = today.getDate();
 
     const callGemini = async (prompt, isJson = false, base64Data = null, mimeType = null) => {
-        let activeKey = localStorage.getItem('bearClass_customApiKey') || apiKey;
+        const isCanvasEnv = typeof __firebase_config !== 'undefined';
+        const canvasApiKey = typeof __gemini_api_key !== 'undefined' ? __gemini_api_key : "";
+        
+        let activeKey = localStorage.getItem('bearClass_customApiKey');
+        
+        if (!activeKey) {
+            const uiKey1 = document.getElementById('api-key-input-annual')?.value;
+            const uiKey2 = document.getElementById('api-key-input-schedule')?.value;
+            activeKey = uiKey1 || uiKey2 || apiKey;
+        }
+
+        // 若無自訂 Key，但在 Canvas 內，則借用系統的 Key
+        if (isCanvasEnv && (!activeKey || activeKey.trim() === "")) {
+            activeKey = canvasApiKey;
+        }
 
         if (!activeKey || activeKey.trim() === "") {
             throw new Error("MISSING_API_KEY");
         }
 
-        const finalModel = 'gemini-2.5-flash';
+        const isUsingCanvasKey = (activeKey === canvasApiKey);
+        const finalModel = isUsingCanvasKey ? 'gemini-2.5-flash-preview-09-2025' : 'gemini-2.5-flash';
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${finalModel}:generateContent?key=${activeKey}`;
         
         const payload = {
@@ -1154,7 +1143,6 @@ service cloud.firestore {
 
     // 儲存單筆學習指標的修改
     window.saveIndInlineEdit = async (dbId, ageKey, lineIndex, uniqueId) => {
-        if(!currentUser) return;
         const ta = document.getElementById(uniqueId);
         const newVal = ta.value.trim();
 
@@ -1340,7 +1328,6 @@ service cloud.firestore {
     };
 
     window.updateAtt = async (studentId) => {
-        if(!currentUser) return;
         const dateStr = document.getElementById('attendance-date').value;
         const statusEl = document.querySelector(`input[name="att_${studentId}"]:checked`);
         const status = statusEl ? statusEl.value : '';
@@ -1642,7 +1629,6 @@ service cloud.firestore {
     };
 
     window.saveAnnual = async () => {
-      if(!currentUser) return;
       const yearInput = document.getElementById('annual-year');
       if (!yearInput) return;
 
@@ -1700,7 +1686,13 @@ service cloud.firestore {
         const file = event.target.files[0];
         if (!file) return;
 
-        let activeKey = localStorage.getItem('bearClass_customApiKey') || apiKey;
+        let activeKey = localStorage.getItem('bearClass_customApiKey');
+
+        if (!activeKey) {
+            const uiKey1 = document.getElementById('api-key-input-annual')?.value;
+            const uiKey2 = document.getElementById('api-key-input-schedule')?.value;
+            activeKey = uiKey1 || uiKey2;
+        }
 
         if (!isCanvasEnv && (!activeKey || activeKey.trim() === '')) {
             window.showAlert('⚠️ 請先在上方欄位貼上您的 Google Gemini API Key 才能使用 AI 功能喔！');
@@ -1764,7 +1756,7 @@ service cloud.firestore {
         } catch (e) {
             console.error("AI Parse Error:", e);
             if (e.message === 'API_KEY_INVALID') {
-                window.showAlert('❌ 解析失敗！您的 API 金鑰無效或沒有權限，請確認上方的金鑰輸入正確。');
+                window.showAlert('❌ 解析失敗！您的 API 金鑰無效或沒有權限，請確認上方的金鑰設定正確。');
             } else if (e.message === 'MISSING_API_KEY') {
                 window.showAlert('⚠️ 請先在上方欄位貼上您的 Google Gemini API Key 才能使用 AI 功能喔！');
             } else if (e.message === 'QUOTA_EXCEEDED') {
@@ -1864,7 +1856,6 @@ service cloud.firestore {
 
     window.handleStudentSubmit = async (e) => {
       e.preventDefault();
-      if(!currentUser) return;
       
       const academicYear = document.getElementById('stu-year').value;
       const seatNo = document.getElementById('stu-seatNo').value;
@@ -1940,7 +1931,6 @@ service cloud.firestore {
     };
 
     window.deleteStudent = (id) => {
-      if(!currentUser) return;
       window.openConfirm('確定要刪除這筆學生資料嗎？', async () => {
           try {
               await deleteDoc(getDoc("bear_students", id));
@@ -2005,7 +1995,6 @@ service cloud.firestore {
 
     window.handleBookSubmit = async (e) => {
       e.preventDefault();
-      if(!currentUser) return;
       const isBorrowed = document.getElementById('book-isBorrowed').value;
       const data = {
         title: document.getElementById('book-title').value,
@@ -2021,12 +2010,10 @@ service cloud.firestore {
     };
 
     window.returnBook = async (id) => {
-      if(!currentUser) return;
       await updateDoc(getDoc("bear_books", id), { isBorrowed: '否', borrower: '', borrowDate: '', returnDate: '' });
     };
 
     window.deleteBook = (id) => {
-      if(!currentUser) return;
       window.openConfirm('確定要刪除這本藏書紀錄嗎？', async () => {
           try {
               await deleteDoc(getDoc("bear_books", id));
@@ -2300,6 +2287,19 @@ service cloud.firestore {
             return;
         }
 
+        let activeKey = localStorage.getItem('bearClass_customApiKey');
+
+        if (!activeKey) {
+            const uiKey1 = document.getElementById('api-key-input-annual')?.value;
+            const uiKey2 = document.getElementById('api-key-input-schedule')?.value;
+            activeKey = uiKey1 || uiKey2;
+        }
+
+        if (!isCanvasEnv && (!activeKey || activeKey.trim() === '')) {
+            window.showAlert('⚠️ 請先在上方欄位貼上您的 Google Gemini API Key 才能使用 AI 功能喔！');
+            return; 
+        }
+
         const btn = document.getElementById(`btn-ai-${index}`);
         const oldHtml = btn.innerHTML;
         btn.innerHTML = '<i data-lucide="loader-2" class="w-3 h-3 animate-spin"></i> 分析中...';
@@ -2345,6 +2345,19 @@ service cloud.firestore {
             return;
         }
 
+        let activeKey = localStorage.getItem('bearClass_customApiKey');
+
+        if (!activeKey) {
+            const uiKey1 = document.getElementById('api-key-input-annual')?.value;
+            const uiKey2 = document.getElementById('api-key-input-schedule')?.value;
+            activeKey = uiKey1 || uiKey2;
+        }
+
+        if (!isCanvasEnv && (!activeKey || activeKey.trim() === '')) {
+            window.showAlert('⚠️ 請先在上方欄位貼上您的 Google Gemini API Key 才能使用 AI 功能喔！');
+            return; 
+        }
+
         const btn = document.getElementById(`btn-ai-ref-${index}`);
         const oldHtml = btn.innerHTML;
         btn.innerHTML = '<i data-lucide="loader-2" class="w-3 h-3 animate-spin"></i> 分析中...';
@@ -2383,7 +2396,6 @@ service cloud.firestore {
     };
 
     window.saveDailyDoc = async (dateStr, index) => {
-      if(!currentUser) return;
       const docId = dateStr.replace(/\//g, '-');
       
       const actEl = document.getElementById(`sch-act-${index}`);
@@ -2544,7 +2556,6 @@ service cloud.firestore {
     };
     window.closeLinkSettings = () => { document.getElementById('sch-link-modal').classList.add('hidden-view'); };
     window.saveLinkSettings = async () => {
-      if(!currentUser) return;
       const newData = {
         academicYear: document.getElementById('set-link-year').value,
         semester: document.getElementById('set-link-semester').value
@@ -2561,7 +2572,6 @@ service cloud.firestore {
     };
     window.closeTeacherSettings = () => { document.getElementById('sch-teacher-modal').classList.add('hidden-view'); };
     window.saveTeacherSettings = async () => {
-      if(!currentUser) return;
       const newData = {
         leadTeacher: document.getElementById('set-teacher-lead').value,
         coTeacher: document.getElementById('set-teacher-co').value,
@@ -2607,106 +2617,67 @@ service cloud.firestore {
       console.error("Firestore Snapshot Error:", error);
       if (error.code === 'permission-denied') {
         const errorEl = document.getElementById('db-error-message');
-        if (errorEl) errorEl.classList.remove('hidden-view');
+        if (errorEl) {
+          errorEl.classList.remove('hidden-view');
+          errorEl.innerHTML = `
+            ⚠️ 資料庫連線被拒絕 (Permission Denied)<br>
+            <span class="text-sm font-normal mt-2 block text-yellow-100 text-left bg-black/30 p-3 rounded mt-3">
+              您的 Firebase 尚未啟用「匿名登入」，或 Firestore 規則阻擋了存取。<br><br>
+              1. 請至 Firebase Console -> Authentication -> Sign-in method 啟用 <strong>匿名登入</strong>。<br>
+              2. 請至 Firebase Console -> Firestore Database -> Rules，將內容改為：<br>
+              <code class="block whitespace-pre text-xs text-white overflow-x-auto mt-1">rules_version = '2';\nservice cloud.firestore {\n  match /databases/{database}/documents {\n    match /{document=**} {\n      allow read, write: if request.auth != null;\n    }\n  }\n}</code>
+            </span>
+            <button onclick="document.getElementById('db-error-message').classList.add('hidden-view')" class="mt-4 text-sm bg-white text-red-600 px-4 py-1.5 rounded-full hover:bg-gray-200">我知道了，先關閉提示</button>
+          `;
+        }
         
         const loadingEl = document.getElementById('loading-screen');
         if (loadingEl) loadingEl.classList.add('hidden-view');
       }
     };
 
-    const initAuth = async () => {
-      try {
-        await auth.authStateReady();
-        if (!auth.currentUser) {
-          await signInAnonymously(auth);
-        }
-      } catch (error) { 
-        console.error("Auth Error:", error); 
-        document.getElementById('loading-screen').innerHTML = `登入失敗 🐻<br><span class='text-sm mt-4'>${error.message}<br>請確認您的 Firebase Console 已啟用「匿名登入 (Anonymous)」功能！</span>`;
-      }
-    };
-    
-    initAuth();
-    onAuthStateChanged(auth, (user) => {
-      if (user) {
-        currentUser = user;
-        
-        // 載入儲存的 API Key 並顯示在輸入框中
-        const savedKey = localStorage.getItem('bearClass_customApiKey') || '';
-        if (savedKey) {
-            setTimeout(() => {
-                const inputs = document.querySelectorAll('input[id^="api-key-input"]');
-                inputs.forEach(input => input.value = savedKey);
-            }, 500);
-        }
+    const startDataListeners = () => {
+        if (window.listenersStarted) return;
+        window.listenersStarted = true;
 
-        onSnapshot(
-          getCol("bear_students"), 
-          snap => {
+        onSnapshot(getCol("bear_students"), snap => {
             studentsData = snap.docs.map(d => ({id: d.id, ...d.data()}));
-            
             window.forceRebuildAttendance = true; 
-
-            if(currentView === 'students' || currentView === 'books' || currentView === 'schedule') {
+            if(['students', 'books', 'schedule'].includes(currentView)) {
                 renderCurrentView();
             }
             renderAttendance(); 
-            
             const loading = document.getElementById('loading-screen');
             if (!loading.classList.contains('hidden-view')) {
-              loading.classList.add('hidden-view');
-              navigate(currentView);
+                loading.classList.add('hidden-view');
+                navigate(currentView);
             }
-          }, 
-          handleSnapshotError
-        );
+        }, handleSnapshotError);
 
-        onSnapshot(
-          getCol("bear_attendance"), 
-          snap => {
+        onSnapshot(getCol("bear_attendance"), snap => {
             attendanceData = snap.docs.map(d => ({id: d.id, ...d.data()}));
             window.isAttendanceLoaded = true;
-            if(currentView === 'schedule') {
-                syncAttendanceDataToUI(); 
-            }
-          }, 
-          handleSnapshotError
-        );
+            if(currentView === 'schedule') syncAttendanceDataToUI(); 
+        }, handleSnapshotError);
 
-        onSnapshot(
-          getCol("bear_indicators"), 
-          snap => {
+        onSnapshot(getCol("bear_indicators"), snap => {
             indicatorsDb = snap.docs.map(d => ({id: d.id, ...d.data()}));
             if(currentView === 'indicators') renderIndicators();
-          }, 
-          handleSnapshotError
-        );
+        }, handleSnapshotError);
         
-        onSnapshot(
-          getCol("bear_books"), 
-          snap => {
+        onSnapshot(getCol("bear_books"), snap => {
             booksData = snap.docs.map(d => ({id: d.id, ...d.data()}));
             if(currentView === 'books') renderCurrentView();
-          },
-          handleSnapshotError
-        );
+        }, handleSnapshotError);
 
-        onSnapshot(
-          getCol("bear_annualEvents"), 
-          snap => {
+        onSnapshot(getCol("bear_annualEvents"), snap => {
             annualEventsData = snap.docs.map(d => ({id: d.id, ...d.data()}));
-            if(currentView === 'annual' && !window.hasUnsavedAnnualChanges) {
-               renderCurrentView();
-            } else if (currentView === 'schedule') {
+            if(['annual', 'schedule'].includes(currentView) && !window.hasUnsavedAnnualChanges) {
                renderCurrentView();
             }
-          },
-          handleSnapshotError
-        );
+        }, handleSnapshotError);
 
-        onSnapshot(
-          getCol("bear_scheduleSettings"), 
-          snap => {
+        onSnapshot(getCol("bear_scheduleSettings"), snap => {
             if(snap.docs.length > 0) {
               const d = snap.docs[0].data();
               schSettings = { 
@@ -2727,26 +2698,19 @@ service cloud.firestore {
               if (semSelect) semSelect.value = schSettings.semester;
             }
 
-            if(currentView === 'schedule' || (currentView === 'annual' && !window.hasUnsavedAnnualChanges)) {
+            if(['annual', 'schedule'].includes(currentView) && !window.hasUnsavedAnnualChanges) {
                renderCurrentView();
             }
-            
             const stuYearInput = document.getElementById('stu-year');
             if(stuYearInput && !stuYearInput.value) stuYearInput.value = schSettings.academicYear;
-          },
-          handleSnapshotError
-        );
+        }, handleSnapshotError);
 
-        onSnapshot(
-          getCol("bear_scheduleEntries"), 
-          snap => {
+        onSnapshot(getCol("bear_scheduleEntries"), snap => {
             scheduleEntriesData = snap.docs.map(d => ({id: d.id, ...d.data()}));
             if(currentView === 'schedule' && !window.hasUnsavedScheduleChanges) {
                renderCurrentView();
             }
-          },
-          handleSnapshotError
-        );
+        }, handleSnapshotError);
 
         setTimeout(() => { 
           const loading = document.getElementById('loading-screen');
@@ -2754,7 +2718,48 @@ service cloud.firestore {
             loading.classList.add('hidden-view'); 
             navigate(currentView); 
           }
-        }, 1500);
+        }, 2000);
+    };
+
+    const initAuth = async () => {
+      try {
+        // 直接登入使用者的專案 (忽略 Canvas 內部 token 以確保身分綁定一致)
+        await signInAnonymously(auth);
+      } catch (error) { 
+        console.error("Auth Error:", error); 
+        const loadingScreen = document.getElementById('loading-screen');
+        if (loadingScreen) {
+          loadingScreen.innerHTML = `
+            <div class="text-red-400 mb-4">登入失敗 🐻</div>
+            <div class="text-sm font-normal text-white px-8 max-w-md mx-auto text-left bg-black/30 p-4 rounded-xl">
+              ⚠️ <strong>無法連線至您的 Firebase 專案</strong><br><br>
+              系統嘗試登入時被拒絕，可能原因如下：<br>
+              1. 您尚未在 Firebase 控制台啟用<strong>「匿名登入 (Anonymous)」</strong>。<br>
+              2. 該網域尚未加入 Firebase 的授權網域清單。<br><br>
+              請排除問題後重新整理頁面。<br><br>
+              <span class="text-yellow-300 text-xs break-all">錯誤訊息：${error.message}</span>
+            </div>
+          `;
+        }
+      }
+    };
+    
+    initAuth();
+
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+          currentUser = user;
+          
+          const savedKey = localStorage.getItem('bearClass_customApiKey') || '';
+          if (savedKey) {
+              setTimeout(() => {
+                  const inputs = document.querySelectorAll('input[id^="api-key-input"]');
+                  inputs.forEach(input => input.value = savedKey);
+              }, 500);
+          }
+          
+          // 確認成功登入且持有 User Token 後，才啟動資料庫連線，徹底避免權限錯誤
+          startDataListeners();
       }
     });
 
