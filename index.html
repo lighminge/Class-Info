@@ -177,7 +177,7 @@ service cloud.firestore {
   <main class="flex-grow">
     
     <!-- 視圖 1: 首頁 -->
-    <div id="view-home" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 max-w-7xl mx-auto mt-12 hidden-view">
+    <div id="view-home" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-7xl mx-auto mt-12 hidden-view">
       <div onclick="navigate('annual')" class="chalk-box flex flex-col items-center text-center cursor-pointer hover:-translate-y-2 hover:shadow-2xl transition-transform group">
         <div class="text-yellow-300 group-hover:scale-110 transition-transform mb-4"><i data-lucide="map" class="w-12 h-12"></i></div>
         <h2 class="text-2xl font-bold mb-2 tracking-wider">學校年度行事曆</h2>
@@ -202,17 +202,96 @@ service cloud.firestore {
         <p class="text-green-100 text-sm">基本資料、聯絡人、過敏原紀錄</p>
         <div class="mt-auto pt-6 text-2xl">🐾</div>
       </div>
+      <!-- 新增：幼兒園學習指標 -->
+      <div onclick="navigate('indicators')" class="chalk-box flex flex-col items-center text-center cursor-pointer hover:-translate-y-2 hover:shadow-2xl transition-transform group lg:col-span-2">
+        <div class="text-yellow-300 group-hover:scale-110 transition-transform mb-4"><i data-lucide="target" class="w-12 h-12"></i></div>
+        <h2 class="text-2xl font-bold mb-2 tracking-wider">幼兒園學習指標</h2>
+        <p class="text-green-100 text-sm">六大領域學習指標查詢與檢索、教案撰寫輔助</p>
+        <div class="mt-auto pt-6 text-2xl">🐾</div>
+      </div>
+    </div>
+
+    <!-- 視圖 6: 幼兒園學習指標查詢 (全新模組) -->
+    <div id="view-indicators" class="max-w-6xl mx-auto space-y-6 hidden-view">
+      <!-- 狀態：尚未初始化資料庫 -->
+      <div id="ind-init-section" class="chalk-box bg-red-900/50 border-red-400 text-center py-12 hidden-view">
+        <i data-lucide="database" class="w-16 h-16 mx-auto mb-4 text-red-300"></i>
+        <h2 class="text-2xl font-bold text-red-100 mb-2">系統尚未建立學習指標資料庫</h2>
+        <p class="text-red-200 mb-6">點擊下方按鈕，系統將自動匯入六大領域學習指標總表至您的專屬資料庫。</p>
+        <button id="btn-init-ind" onclick="initIndicatorsDb()" class="chalk-btn bg-red-600 hover:bg-red-500 mx-auto text-lg px-8 py-3 shadow-lg mt-6">
+          開始初始化資料庫
+        </button>
+      </div>
+
+      <!-- 狀態：查詢條件與結果 -->
+      <div id="ind-main-section" class="space-y-6 hidden-view">
+        <div class="chalk-box">
+          <h2 class="text-2xl font-bold mb-6 flex items-center gap-2 text-yellow-300 border-b border-white/20 pb-3">
+            <i data-lucide="filter" class="w-6 h-6"></i> 學習指標條件篩選
+          </h2>
+          
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
+            <div class="flex flex-col">
+              <label class="text-sm font-bold text-green-100 mb-1">領域</label>
+              <select id="ind-filter-domain" class="chalk-input [&>option]:text-black text-lg" onchange="handleIndFilterChange('domain')">
+                <option value="">-- 全部領域 --</option>
+              </select>
+            </div>
+            
+            <div class="flex flex-col">
+              <label class="text-sm font-bold text-green-100 mb-1">領域能力</label>
+              <select id="ind-filter-ability" class="chalk-input [&>option]:text-black text-lg" onchange="handleIndFilterChange('ability')">
+                <option value="">-- 全部能力 --</option>
+              </select>
+            </div>
+
+            <div class="flex flex-col">
+              <label class="text-sm font-bold text-green-100 mb-1">學習面向</label>
+              <select id="ind-filter-aspect" class="chalk-input [&>option]:text-black text-lg" onchange="handleIndFilterChange('aspect')">
+                <option value="">-- 全部面向 --</option>
+              </select>
+            </div>
+
+            <div class="flex flex-col lg:col-span-2">
+              <label class="text-sm font-bold text-green-100 mb-1">課程目標</label>
+              <select id="ind-filter-objective" class="chalk-input [&>option]:text-black text-lg" onchange="handleIndFilterChange('objective')">
+                <option value="">-- 全部課程目標 --</option>
+              </select>
+            </div>
+
+            <div class="flex flex-col">
+              <label class="text-sm font-bold text-yellow-200 mb-1">顯示歲數範圍</label>
+              <select id="ind-filter-age" class="chalk-input [&>option]:text-black text-lg border-yellow-300" onchange="handleIndFilterChange('age')">
+                <option value="ALL">顯示全部歲段</option>
+                <option value="age23">2-3 歲</option>
+                <option value="age34">3-4 歲</option>
+                <option value="age45">4-5 歲</option>
+                <option value="age56">5-6 歲</option>
+              </select>
+            </div>
+          </div>
+          
+          <div class="flex justify-end border-t border-white/20 pt-4">
+            <button onclick="renderIndicators()" class="chalk-btn bg-blue-600/70 hover:bg-blue-500 text-lg px-8 shadow-lg">
+              <i data-lucide="search" class="w-5 h-5"></i> 查詢指標
+            </button>
+          </div>
+        </div>
+
+        <div class="chalk-box">
+          <h2 class="text-xl font-bold mb-4 flex items-center gap-2 text-white">
+            <i data-lucide="target" class="w-6 h-6 text-yellow-400"></i> 查詢結果 
+            <span class="text-sm font-normal bg-black/30 px-3 py-1 rounded-full">共 <span id="ind-results-count">0</span> 筆課程目標</span>
+          </h2>
+          <div id="ind-results-container" class="space-y-6">
+             <!-- 查詢結果動態產生 -->
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- 視圖 5: 學校年度行事曆 -->
     <div id="view-annual" class="max-w-[1400px] mx-auto space-y-6 hidden-view">
-      <!-- AI 金鑰設定區 -->
-      <div class="chalk-box flex items-center gap-3 py-2 px-4">
-        <label class="text-sm font-bold text-yellow-200 flex items-center gap-1"><i data-lucide="key" class="w-4 h-4"></i> AI 金鑰 (API Key)：</label>
-        <input type="password" id="api-key-input-annual" class="chalk-input flex-1 text-sm bg-black/10" placeholder="請貼上您的 Google Gemini API Key 以啟用 AI 檔案解析..." oninput="updateApiKey(this.value)">
-        <button onclick="toggleApiKeyVisibility('api-key-input-annual')" class="text-white/50 hover:text-white" title="顯示/隱藏"><i data-lucide="eye" class="w-4 h-4"></i></button>
-      </div>
-
       <div class="chalk-box flex flex-wrap gap-6 items-end justify-between relative overflow-hidden">
         <div class="flex flex-wrap gap-4 items-end relative z-10">
           <div>
@@ -413,13 +492,6 @@ service cloud.firestore {
 
     <!-- 視圖 4: 行事曆與排程 -->
     <div id="view-schedule" class="flex flex-col gap-6 hidden-view max-w-[1600px] mx-auto w-full">
-      <!-- AI 金鑰設定區 -->
-      <div class="chalk-box flex items-center gap-3 py-2 px-4">
-        <label class="text-sm font-bold text-yellow-200 flex items-center gap-1"><i data-lucide="key" class="w-4 h-4"></i> AI 金鑰 (API Key)：</label>
-        <input type="password" id="api-key-input-schedule" class="chalk-input flex-1 text-sm bg-black/10" placeholder="請貼上您的 Google Gemini API Key 以啟用 AI 學習指標分析..." oninput="updateApiKey(this.value)">
-        <button onclick="toggleApiKeyVisibility('api-key-input-schedule')" class="text-white/50 hover:text-white" title="顯示/隱藏"><i data-lucide="eye" class="w-4 h-4"></i></button>
-      </div>
-
       <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
         <!-- 迷你月曆 -->
         <div class="chalk-box lg:col-span-1 flex flex-col items-center">
@@ -576,33 +648,56 @@ service cloud.firestore {
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
     import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-    import { getFirestore, collection, onSnapshot, doc, setDoc, addDoc, deleteDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    import { getFirestore, collection, onSnapshot, doc, setDoc, addDoc, deleteDoc, updateDoc, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-    // 系統變數
-    const firebaseConfig = {
-      apiKey: "AIzaSyC0jlWhJ-9J969SuuHt3uZVaHJaoOXTMus",
-      authDomain: "github-class-info.firebaseapp.com",
-      projectId: "github-class-info",
-      storageBucket: "github-class-info.firebasestorage.app",
-      messagingSenderId: "875585105725",
-      appId: "1:875585105725:web:9d2c3ffc03f4e9b2fbdf54",
-      measurementId: "G-HM8WZTSBVN"
-    };
+    // 系統變數 (自動判斷環境)
+    const isCanvasEnv = typeof __firebase_config !== 'undefined';
+    const firebaseConfig = isCanvasEnv 
+      ? JSON.parse(__firebase_config) 
+      : {
+          apiKey: "AIzaSyC0jlWhJ-9J969SuuHt3uZVaHJaoOXTMus",
+          authDomain: "github-class-info.firebaseapp.com",
+          projectId: "github-class-info",
+          storageBucket: "github-class-info.firebasestorage.app",
+          messagingSenderId: "875585105725",
+          appId: "1:875585105725:web:9d2c3ffc03f4e9b2fbdf54",
+          measurementId: "G-HM8WZTSBVN"
+        };
+
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db = getFirestore(app);
-    const apiKey = ""; // Gemini API 視覺解析使用
-
+    
+    // ⚠️ 若要在 GitHub 執行進階 AI 分析功能，請於雙引號內填入您專屬的 Google Gemini API Key
+    const apiKey = ""; 
+    
+    const activeAppId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
     let currentUser = null;
+
+    // 動態路徑處理 (解決 Canvas 權限被拒絕的問題，確保嚴格路徑與 GitHub 根目錄的完美相容)
+    const getCol = (colName) => {
+        if (isCanvasEnv && currentUser) {
+            return collection(db, 'artifacts', activeAppId, 'users', currentUser.uid, colName);
+        }
+        return collection(db, colName);
+    };
+
+    const getDoc = (colName, docId) => {
+        if (isCanvasEnv && currentUser) {
+            return doc(db, 'artifacts', activeAppId, 'users', currentUser.uid, colName, docId);
+        }
+        return doc(db, colName, docId);
+    };
+
     let currentView = 'home';
     let today = new Date();
     
-    // 全域資料陣列
     let studentsData = [];
     let booksData = [];
     let scheduleEntriesData = [];
     let annualEventsData = []; 
     let attendanceData = []; 
+    let indicatorsDb = []; 
     let schSettings = { academicYear: '114', semester: '下學期', leadTeacher: '大熊老師', coTeacher: '兔兔老師', firstWeekLead: '大熊老師', id: null };
 
     window.hasUnsavedAnnualChanges = false;
@@ -627,32 +722,6 @@ service cloud.firestore {
     let viewingWeek = 1;
     let promptCallback = null;
 
-    // AI 金鑰同步與顯示邏輯
-    window.updateApiKey = (val) => {
-        const trimmed = val.trim();
-        localStorage.setItem('bearClass_geminiApiKey', trimmed);
-        const inputs = document.querySelectorAll('input[id^="api-key-input"]');
-        inputs.forEach(input => {
-             // 確保不會覆蓋掉正在打字的輸入框游標
-             if (input.value !== trimmed && input !== document.activeElement) {
-                 input.value = trimmed;
-             }
-        });
-    };
-
-    window.toggleApiKeyVisibility = (id) => {
-        const input = document.getElementById(id);
-        if (input) {
-            if (input.type === 'password') {
-                input.type = 'text';
-                setTimeout(() => { if(input) input.type = 'password'; }, 3000); // 3秒後自動隱藏，增加安全性
-            } else {
-                input.type = 'password';
-            }
-        }
-    };
-
-    // 複製文字功能
     window.copyText = (elementId) => {
         const textArea = document.getElementById(elementId);
         if (textArea) {
@@ -660,14 +729,13 @@ service cloud.firestore {
             textArea.setSelectionRange(0, 99999); 
             try {
                 document.execCommand('copy');
-                window.showAlert('✅ 學習指標已成功複製到剪貼簿！');
+                window.showAlert('✅ 內容已成功複製到剪貼簿！');
             } catch (err) {
                 console.error('Copy failed', err);
             }
         }
     };
 
-    // 客製化單一按鈕警告對話框
     window.showAlert = (message) => {
       document.getElementById('custom-confirm-message').innerHTML = message.replace(/\n/g, '<br>');
       document.getElementById('custom-confirm-cancel').classList.add('hidden-view'); 
@@ -698,20 +766,16 @@ service cloud.firestore {
       document.getElementById('custom-confirm-modal').classList.add('hidden-view');
     };
 
-    // 更新年度行事曆的日期螢光筆標記
     window.updateHighlights = (index) => {
         const text = document.getElementById(`annual-events-${index}`).value || '';
         for(let i=0; i<7; i++) {
             const cell = document.getElementById(`annual-day-cell-${index}-${i}`);
             if(!cell) continue;
-            const d1 = cell.getAttribute('data-date1'); // 5/1
-            const d2 = cell.getAttribute('data-date2'); // 05/01
-            const d3 = cell.getAttribute('data-date3'); // 5月1日
+            const d1 = cell.getAttribute('data-date1'); 
+            const d2 = cell.getAttribute('data-date2'); 
+            const d3 = cell.getAttribute('data-date3'); 
             
-            // 檢查這週的事件文字是否有包含該格的日期字眼
             const isHighlighted = text.includes(d1) || text.includes(d2) || text.includes(d3);
-            
-            // 移除 scale-125 等可能導致跑版的設定，改為內發光與明顯底色
             const activeClasses = ['bg-red-500/90', 'border-red-300', 'border-2', 'text-white', 'font-black', 'shadow-inner', 'rounded-md'];
             
             if(isHighlighted) {
@@ -722,7 +786,6 @@ service cloud.firestore {
         }
     };
 
-    // 天氣解碼 (確保臺中市天氣顯示正確，不會出現下雪)
     const getWeatherDesc = (code) => {
         if (code <= 1) return '晴朗';
         if (code <= 3) return '多雲';
@@ -746,7 +809,6 @@ service cloud.firestore {
       });
     };
 
-    // 取得開學週的星期一 (若設定檔有存自訂日期，優先使用自訂日期)
     const getSemesterStartMonday = (minguoYear, semester) => {
       const docId = `${minguoYear}_${semester}`;
       const dataObj = annualEventsData.find(d => d.id === docId);
@@ -783,7 +845,6 @@ service cloud.firestore {
       return Math.max(1, Math.min(21, diffWeeks + 1));
     };
 
-    // 取得即時天氣 (臺中市)
     fetch('https://api.open-meteo.com/v1/forecast?latitude=24.1477&longitude=120.6736&current_weather=true')
       .then(res => res.json())
       .then(data => {
@@ -804,19 +865,23 @@ service cloud.firestore {
     document.getElementById('header-month').innerText = `${today.getMonth()+1}月`;
     document.getElementById('header-date').innerText = today.getDate();
 
-    // ================= 共用 Gemini API 呼叫模組 =================
     const callGemini = async (prompt, isJson = false, base64Data = null, mimeType = null) => {
-        let activeKey = localStorage.getItem('bearClass_geminiApiKey');
-        if (!activeKey && apiKey) activeKey = apiKey; 
-
-        if (!activeKey || activeKey.trim() === '') {
-            throw new Error('MISSING_API_KEY');
+        let activeKey = apiKey;
+        if (!isCanvasEnv) {
+            activeKey = localStorage.getItem('bearClass_customApiKey') || apiKey;
+            if (!activeKey || activeKey.trim() === "") {
+                activeKey = window.prompt("偵測到您正在外部環境執行。請輸入您的 Google Gemini API Key 以啟用 AI 功能：");
+                if (activeKey && activeKey.trim() !== "") {
+                    localStorage.setItem('bearClass_customApiKey', activeKey.trim());
+                } else {
+                    throw new Error("API_KEY_INVALID");
+                }
+            }
         }
 
-        // 若使用者自備 Key，優先使用 gemini-2.5-flash，並提供備援模型防止單一模型塞車
-        const modelsToTry = (activeKey === apiKey && apiKey !== "") 
-            ? ['gemini-2.5-flash-preview-09-2025'] 
-            : ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
+        // 自動選擇模型：在預覽沙盒內使用專用預覽版；在外部使用自備金鑰時切換至標準正式版
+        const finalModel = isCanvasEnv ? 'gemini-2.5-flash-preview-09-2025' : 'gemini-2.5-flash';
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${finalModel}:generateContent?key=${activeKey}`;
         
         const payload = {
             contents: [{
@@ -843,57 +908,259 @@ service cloud.firestore {
             };
         }
 
+        const delays = [1000, 2000, 4000, 8000, 16000];
         let lastError = null;
 
-        for (const modelName of modelsToTry) {
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${activeKey.trim()}`;
-            let retries = 3;
-            let delay = 1500;
-
-            while (retries > 0) {
-                try {
-                    const response = await fetch(url, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    });
-                    
-                    if (!response.ok) {
-                        if (response.status === 401 || response.status === 403) {
-                            localStorage.removeItem('bearClass_geminiApiKey');
-                            throw new Error('API_KEY_INVALID');
-                        }
-                        // 攔截 429 請求次數過多 (Quota Exceeded) 的錯誤
-                        if (response.status === 429) {
-                            throw new Error('QUOTA_EXCEEDED');
-                        }
-                        let errMsg = 'API 呼叫失敗';
-                        try { const errData = await response.json(); errMsg = errData.error?.message || errMsg; } catch(e){}
-                        throw new Error(errMsg);
+        for (let attempt = 0; attempt <= 5; attempt++) {
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                
+                if (!response.ok) {
+                    if (response.status === 400 || response.status === 401 || response.status === 403) {
+                        localStorage.removeItem('bearClass_customApiKey');
+                        throw new Error('API_KEY_INVALID');
                     }
-
-                    const data = await response.json();
-                    return data.candidates?.[0]?.content?.parts?.[0]?.text;
-                } catch (e) {
-                    if (e.message === 'API_KEY_INVALID' || e.message === 'QUOTA_EXCEEDED' || (e.message && typeof e.message === 'string' && e.message.toLowerCase().includes('quota'))) {
-                        // 遇到額度限制或無效金鑰，直接拋出不再重試與切換模型，避免鎖定
-                        throw new Error(e.message === 'API_KEY_INVALID' ? 'API_KEY_INVALID' : 'QUOTA_EXCEEDED'); 
+                    if (response.status === 429) {
+                        throw new Error('QUOTA_EXCEEDED');
                     }
-                    lastError = e;
-                    retries--;
-                    if (retries === 0) break; // 該模型重試耗盡，換下一個備援模型
-                    await new Promise(r => setTimeout(r, delay));
-                    delay *= 2;
+                    let errMsg = `HTTP Error ${response.status}`;
+                    try { const errData = await response.json(); errMsg = errData.error?.message || errMsg; } catch(e){}
+                    throw new Error(errMsg);
+                }
+
+                const data = await response.json();
+                return data.candidates?.[0]?.content?.parts?.[0]?.text;
+            } catch (e) {
+                if (e.message === 'API_KEY_INVALID' || e.message === 'QUOTA_EXCEEDED' || (e.message && typeof e.message === 'string' && e.message.toLowerCase().includes('quota'))) {
+                    throw new Error(e.message === 'API_KEY_INVALID' ? 'API_KEY_INVALID' : 'QUOTA_EXCEEDED'); 
+                }
+                lastError = e;
+                if (attempt < 5) {
+                    await new Promise(r => setTimeout(r, delays[attempt]));
                 }
             }
         }
         
-        // 將系統英文錯誤訊息轉換為友善的中文提示
         if (lastError && lastError.message && lastError.message.includes('high demand')) {
-             throw new Error('目前 Google AI 伺服器負載過高 (High demand)，請稍後幾分鐘再試。');
+             throw new Error('目前 Google AI 伺服器負載過高，請稍候再試。');
         }
         throw lastError;
     };
+
+    // ================= 幼兒園學習指標系統 =================
+    let indFilters = { domain: '', ability: '', aspect: '', objective: '', age: 'ALL' };
+
+    const INITIAL_INDICATORS_DATA = [
+      { domain: "身體動作與健康", ability: "覺察與模仿", aspect: "身體動作", objective: "身-1-1 模仿身體操控活動", age23: "身-幼-1-1-1 認識身體部位或身體基本動作的名稱\n身-幼-1-1-2 模仿常見的穩定性及移動性動作", age34: "身-小-1-1-1 ---->\n身-小-1-1-2 模仿身體的靜態平衡動作", age45: "身-中-1-1-1 覺察身體在穩定性及移動性動作表現上的協調性\n身-中-1-1-2 模仿身體的動態平衡動作", age56: "身-大-1-1-1 ---->\n身-大-1-1-2 動作表現上的協調性" },
+      { domain: "身體動作與健康", ability: "覺察與模仿", aspect: "用具操作", objective: "身-1-2 模仿各種用具的操作", age23: "身-幼-1-2-1 覺察器物的操作方式\n身-幼-1-2-2 模仿抓、握的精細動作", age34: "身-小-1-2-1 ---->\n身-小-1-2-2 模仿抓、握、扭轉的精細動作", age45: "身-中-1-2-1 覺察各種用具安全的操作技能\n身-中-1-2-2 模仿抓、握、扭轉、揉、扣的精細動作", age56: "身-大-1-2-1 ---->\n身-大-1-2-2 覺察手眼協調的精細動作" },
+      { domain: "身體動作與健康", ability: "覺察與模仿", aspect: "健康行動", objective: "身-1-3 覺察與模仿健康行為及安全的動作", age23: "身-幼-1-3-1 模仿日常生活的健康行為\n身-幼-1-3-2 模仿良好的飲食行為\n身-幼-1-3-3 模仿身體活動安全的距離", age34: "身-小-1-3-1 ---->\n身-小-1-3-2 ---->\n身-小-1-3-3 覺察身體活動安全的距離", age45: "身-中-1-3-1 覺察與模仿日常生活的健康行為\n身-中-1-3-2 辨識食物的安全,並選擇均衡營養的飲食\n身-中-1-3-3 ---->\n身-中-1-3-4 覺察與辨別危險,保護自己的安全", age56: "身-大-1-3-1 ---->\n身-大-1-3-2 ---->\n身-大-1-3-3 ---->\n身-大-1-3-4 覺察與辨別危險,保護自己及他人的安全" },
+      { domain: "身體動作與健康", ability: "協調與控制", aspect: "身體動作", objective: "身-2-1 安全應用身體操控動作、滿足自由活動及與他人合作的需求", age23: "身-幼-2-1-1 在穩定性及移動性動作中練習平衡\n身-幼-2-1-2 遵守安全活動的原則", age34: "身-小-2-1-1 在穩定性及移動性動作中練習平衡與協調\n身-小-2-1-2 ---->", age45: "身-中-2-1-1 在合作遊戲的情境中練習動作的協調與敏捷\n身-中-2-1-2 在團體活動中,應用身體基本動作安全地完成任務", age56: "身-大-2-1-1 ---->\n身-大-2-1-2 ---->" },
+      { domain: "身體動作與健康", ability: "協調與控制", aspect: "用具操作", objective: "身-2-2 熟練各種用具的操作", age23: "身-幼-2-2-1 平穩使用各種素材、工具或器材\n身-幼-2-2-2 手肘支撐下練習抓、握的精細動作", age34: "身-小-2-2-1 ---->\n身-小-2-2-2 操作與運用抓、握、扭轉的精細動作", age45: "身-中-2-2-1 敏捷使用各種素材、工具或器材\n身-中-2-2-2 綜合運用抓、握、扭轉、揉、扣的精細動作", age56: "身-大-2-2-1 ---->\n身-大-2-2-2 熟練手眼協調的精細動作" },
+      { domain: "身體動作與健康", ability: "協調與控制", aspect: "健康行動", objective: "身-2-3 熟練並養成健康生活習慣", age23: "身-幼-2-3-1 學習自己用餐\n身-幼-2-3-2 參與日常生活的健康行為", age34: "身-小-2-3-1 正確使用餐具\n身-小-2-3-2 ---->", age45: "身-中-2-3-1 清潔自己的餐具與整理用餐環境\n身-中-2-3-2 熟練並維持日常生活的健康行為", age56: "身-大-2-3-1 使用清潔工具清理環境\n身-大-2-3-2 ---->" },
+      { domain: "身體動作與健康", ability: "組合與創造", aspect: "身體動作", objective: "身-3-1 應用組合及變化各種動作呈現肢體遊戲的樂趣", age23: "身-幼-3-1-1 隨著音樂旋律擺動身體", age34: "身-小-3-1-1 在創意想像的情境展現個人肢體動作的組合與變化", age45: "身-中-3-1-1 ---->", age56: "身-大-3-1-1 與他人合作展現各種創意改變動作的組合" },
+      { domain: "身體動作與健康", ability: "組合與創造", aspect: "用具操作", objective: "身-3-2 樂於善用各種素材及器材進行創造性活動", age23: "", age34: "", age45: "身-中-3-2-1 把玩操作各種素材或器材,嘗試各種創新玩法", age56: "身-大-3-2-1 與他人合作運用各種素材或器材,共同發展創新玩法" },
+      
+      { domain: "認知", ability: "蒐集訊息", aspect: "生活環境中的數學", objective: "認-1-1 蒐集生活環境中的數學訊息", age23: "認-幼-1-1-1 探索物體的外形\n認-幼-1-1-2 探索兩個物體位置間的上下關係", age34: "認-小-1-1-1 辨識眼前名稱物的形狀\n認-小-1-1-2 覺知兩個物體位置間的上下關係\n認-小-1-1-3 覺知數量訊息及生活環境中的數字符號", age45: "認-中-1-1-1 ---->\n認-中-1-1-2 辨識兩個物體位置間的上下、前後、裡外的關係\n認-中-1-1-3 認識數字符號\n認-中-1-1-4 運用簡數蒐集生活環境中的訊息\n認-中-1-1-5 運用身邊物件為量尺測量自然現象或文化產物特徵的訊息", age56: "認-大-1-1-1 覺知物體的形狀會因觀察角度的不同而不同\n認-大-1-1-2 以自己為定點,辨識物體與自己位置間的上下、前後、左右的關係\n認-大-1-1-3 辨識生活環境中數字符號的意義\n認-大-1-1-4 ---->\n認-大-1-1-5 運用標準量尺測量自然現象或文化產物特徵的訊息" },
+      { domain: "認知", ability: "蒐集訊息", aspect: "自然現象", objective: "認-1-2 蒐集自然現象的訊息", age23: "認-幼-1-2-1 觀察動植物的特徵", age34: "認-小-1-2-1 觀察動植物的生長變化\n認-小-1-2-2 觀察自然現象特徵的變化\n認-小-1-2-3 以圖像或符號記錄自然現象的簡單訊息", age45: "認-中-1-2-1 ---->\n認-中-1-2-2 ---->\n認-中-1-2-3 以圖像或符號記錄自然現象的多項訊息", age56: "認-大-1-2-1 ---->\n認-大-1-2-2 ---->\n認-大-1-2-3 ---->" },
+      { domain: "認知", ability: "蒐集訊息", aspect: "文化產物", objective: "認-1-3 蒐集文化活動的訊息", age23: "認-幼-1-3-1 探索生活物件的特性與功能", age34: "認-小-1-3-1 觀察生活物件的特徵\n認-小-1-3-2 以圖像或符號記錄生活物件的簡單訊息", age45: "認-中-1-3-1 ---->\n認-中-1-3-2 以圖像或符號記錄生活物件的多項訊息", age56: "認-大-1-3-1 ---->\n認-大-1-3-2 ---->" },
+      { domain: "認知", ability: "整理訊息", aspect: "生活環境中的數學", objective: "認-2-1 整理生活環境中的數學訊息", age23: "", age34: "", age45: "認-中-2-1-1 依據序列整理自然現象或文化產物的數學訊息\n認-中-2-1-3 運用十以內的合成與分解整理數量訊息", age56: "認-大-2-1-1 ---->\n認-大-2-1-2 覺知物件間排列的型式\n認-大-2-1-3 ---->\n認-大-2-1-4 運用二十以內的合成與分解整理數量訊息\n認-大-2-1-5 運用標準整理生活環境中的數量訊息" },
+      { domain: "認知", ability: "整理訊息", aspect: "自然現象", objective: "認-2-2 整理自然現象訊息間的關係", age23: "認-幼-2-2-1 依據動植物的特徵歸類", age34: "認-小-2-2-1 ---->\n認-小-2-2-2 比較動植物特徵的異同", age45: "認-中-2-2-1 依據特徵為自然現象分類並命名\n認-中-2-2-2 與他人討論自然現象轉變間的關係\n認-中-2-2-3 與他人討論動植物與生活的關係", age56: "認-大-2-2-1 ---->\n認-大-2-2-2 ---->\n認-大-2-2-3 與他人討論自然現象的變化與生活的關係" },
+      { domain: "認知", ability: "解決問題", aspect: "生活環境中的數學", objective: "認-3-1 與他人合作解決生活環境中的問題", age23: "認-幼-2-3-1 依據生活物件的特性與功能歸類", age34: "認-小-2-3-1 ---->\n認-小-2-3-2 比較生活物件特徵間的異同\n認-小-3-1-1 探索解決問題的可能方法", age45: "認-中-2-3-1 依據特徵為生活物件分類並命名\n認-中-2-3-2 與他人討論生活物件特徴間的關係\n認-中-3-1-1 參與討論解決問題的可能方法並實際執行", age56: "認-大-2-3-1 ---->\n認-大-2-3-2 ---->\n認-大-2-3-3 與他人討論生活物件與生活的關係\n認-大-3-1-1 與同伴討論解決問題的方法,並與他人合作實際執行\n認-大-3-1-2 與他人共同驗證問題解決的過程" },
+
+      { domain: "語文", ability: "理解", aspect: "肢體/口語", objective: "語-1-1 理解互動對象的表圖", age23: "語-幼-1-1-1 理解簡單的手勢、表情與口語指示\n語-幼-1-1-2 理解一對一互動情境中輪流說話的規則", age34: "語-小-1-1-1 理解簡單互動中輪流說話的規則\n語-小-1-1-2 理解簡單互動中輪流說話的規則\n語-小-1-1-3 聽時能專注比喻", age45: "語-中-1-1-1 合宜表達互動對象的表情和肢體動作\n語-中-1-1-2 ---->\n語-中-1-1-3 ---->", age56: "語-大-1-1-1 以生活經驗中常見的符號的意義\n語-大-1-1-2 ---->\n語-大-1-1-3 ---->\n語-大-1-1-4 理解互動對象回應的請求與拒絕" },
+      { domain: "語文", ability: "理解", aspect: "口語", objective: "語-1-2 理解說話語氣和口語的音韻特徵", age23: "語-幼-1-2-1 喜歡嬉戲童謠", age34: "語-小-1-2-1 覺察兒歌與童韻的韻腳\n語-小-1-2-2 覺察童謠的句子韻", age45: "語-中-1-2-1 辨認兒歌與童謠的韻腳\n語-中-1-2-2 理解語音可以組合", age56: "語-大-1-2-1 ---->\n語-大-1-2-2 ---->" },
+      { domain: "語文", ability: "理解", aspect: "口語", objective: "語-1-3 認識社會使用多種語言的情形", age23: "語-幼-1-3-1 覺察除了自己使用的語言,還有其他語言", age34: "語-小-1-3-1 知道生活環境中有各種不同的語言", age45: "語-中-1-3-1 ---->", age56: "語-大-1-3-1 知道本土語言和外語是不同的語言" },
+      { domain: "語文", ability: "理解", aspect: "圖像符號", objective: "語-1-4 理解生活環境中的圖像符號", age23: "語-幼-1-4-1 覺察生活環境中常見的圖像符號\n語-幼-1-4-2 認出代表自己或所屬群的符號", age34: "語-小-1-4-1 ---->\n語-小-1-4-2 ---->", age45: "語-中-1-4-1 理解符號中日常物件內容\n語-中-1-4-2 知道能使用圖像記錄與說明", age56: "語-大-1-4-1 生活經驗中的規素說標符號的意義\n語-大-1-4-2 ---->" },
+      { domain: "語文", ability: "理解", aspect: "文字功能", objective: "語-1-7 理解文字的功能", age23: "語-幼-1-7-1 覺察文字所標示標價的文字", age34: "語-小-1-7-1 說出自己的姓名", age45: "語-中-1-7-1 說出標示所屬標價的文字\n語-中-1-7-2 知道能使用文字記錄與說明\n語-中-1-7-3 知道各種書面訊息的功能", age56: "語-大-1-7-1 從生活環境中認出常見的文字\n語-大-1-7-2 ---->\n語-大-1-7-3 ---->" },
+      { domain: "語文", ability: "表達", aspect: "肢體", objective: "語-2-1 以肢體語言表達", age23: "語-幼-2-1-1 運用簡單的肢體動作輔助口語表達", age34: "語-小-2-1-1 運用簡單的肢體動作進行表演", age45: "語-中-2-1-1 運用較豐富或經驗感成故事", age56: "語-大-2-1-1 ---->" },
+      { domain: "語文", ability: "表達", aspect: "口語", objective: "語-2-4 看圖敘說", age23: "語-幼-2-4-1 描述圖片主要的人或物", age34: "語-小-2-4-1 描述圖片細節", age45: "語-中-2-4-1 敘說一組圖片部分連貫的情節", age56: "語-大-2-4-1 有順序或圖畫書敘說有主題的故事" },
+
+      { domain: "社會", ability: "探索與覺察", aspect: "自己", objective: "社-1-1 認識自己", age23: "社-幼-1-1-1 覺察自己身體的部位、功能及其特徵\n社-幼-1-1-2 探索自己喜歡做的事", age34: "社-小-1-1-1 ---->\n社-小-1-1-2 ---->", age45: "社-中-1-1-1 覺察自己的外型和性別\n社-中-1-1-2 探索自己的興趣與長處", age56: "社-大-1-1-1 辨認自己與他人的身體特徵與性別\n社-大-1-1-2 ---->" },
+      { domain: "社會", ability: "探索與覺察", aspect: "人與人", objective: "社-1-2 覺察自己能與他人共在環境", age23: "", age34: "社-小-1-2-1 覺察他人的想法", age45: "社-中-1-2-1 覺察自己和他人有不同的想法感受、需求", age56: "社-大-1-2-1 ---->" },
+      { domain: "社會", ability: "探索與覺察", aspect: "人與人", objective: "社-1-3 覺察生活規範與活動規則", age23: "社-幼-1-3-1 覺察生活作息和活動的規律性", age34: "社-小-1-3-1 ---->", age45: "社-中-1-3-1 辨別生活規範中能做或不能做的事", age56: "社-大-1-3-1 辨認生活規範和活動規則的理由" },
+      { domain: "社會", ability: "探索與覺察", aspect: "人與環境", objective: "社-1-4 覺察家的重要", age23: "社-幼-1-4-1 感受家人對自己的照顧與愛", age34: "社-小-1-4-1 ---->", age45: "社-中-1-4-1 覺察自己及與家人間的相互照顧關係", age56: "社-大-1-4-1 ---->" },
+      { domain: "社會", ability: "探索與覺察", aspect: "人與環境", objective: "社-1-5 探索自己生活環境中事物的價值", age23: "社-幼-1-5-1 知道生活環境中常接觸的人事物", age34: "社-小-1-5-1 認出生活環境中有接觸的人事物\n社-小-1-5-2 覺察不同性別的人都可做各種的家務分工\n社-小-1-5-3 覺察生活安全、避開危險的人事物", age45: "社-中-1-5-1 參與和探索生活中的人事物、動、植所及其與自己的關係\n社-中-1-5-2 覺察不同性別的人可以有多元的興趣及角色活動\n社-中-1-5-3 ---->", age56: "社-大-1-5-1 探索社區中的人事物、活動、場所及其與自己的關係\n社-大-1-5-2 ---->\n社-大-1-5-3 辨識生活環境中的危險、維護自身的安全" },
+      { domain: "社會", ability: "探索與覺察", aspect: "人與環境", objective: "社-1-6 認識生活環境中文化的多元現象", age23: "社-幼-1-6-1 嘗試參與節慶活動", age34: "社-小-1-6-1 ---->\n社-小-1-6-2 參加節慶活動\n社-小-1-6-3 參加節慶活動", age45: "社-中-1-6-1 知道自己與他人相同或不同的生活方式\n社-中-1-6-2 知道自己與他人相同或不同的生活方式\n社-中-1-6-3 ---->", age56: "社-大-1-6-1 體驗參與各種活動\n社-大-1-6-2 認識生活環境中不同族群文化特色\n社-大-1-6-3 樂於參與多元文化的活動" },
+      { domain: "社會", ability: "調節與控制", aspect: "人與人", objective: "社-2-3 調整自己在互動對象的關係上表現合宜的生活禮儀", age23: "", age34: "", age45: "社-中-2-3-1 調整自己在互動對象的關係上表現合宜的生活禮儀\n社-中-2-3-2 理解生活規範的理由並遵循自己的行動", age56: "社-大-2-3-1 依據情境,表現合宜的生活禮儀\n社-大-2-3-2 ---->\n社-大-2-3-3 提供人共同訂定活動規則,遵守共同協議" },
+      { domain: "社會", ability: "愛護與尊重", aspect: "自己", objective: "社-3-1 肯定自己", age23: "社-幼-3-1-1 自己能做的事自己做\n社-幼-3-1-2 對自己完成的工作感到喜樂", age34: "社-小-3-1-1 ---->\n社-小-3-1-2 ---->", age45: "社-中-3-1-1 建立良好習慣,負責任的態度與行為\n社-中-3-1-2 欣賞自己的特質,肯定自己", age56: "社-大-3-1-1 ---->\n社-大-3-1-2 欣賞自己的特質,肯定自己" },
+      { domain: "社會", ability: "愛護與尊重", aspect: "自己", objective: "社-3-2 保護自己", age23: "社-幼-3-2-1 愛護自己身體", age34: "社-小-3-2-1 ---->", age45: "社-中-3-2-1 保護自己身體的隱私部位,並適時尋求協助", age56: "社-大-3-2-1 ---->" },
+      { domain: "社會", ability: "愛護與尊重", aspect: "人與人", objective: "社-3-3 關懷與尊重生活環境中的他人", age23: "社-幼-3-3-1 樂於與友伴一起進行教活動\n社-幼-3-3-2 尊敬長輩、喜愛與感謝家人\n社-幼-3-3-3 尊重自己不同性別、年齡、身心狀態的人", age34: "社-小-3-3-1 ---->\n社-小-3-3-2 ---->\n社-小-3-3-3 ---->", age45: "社-中-3-3-1 關懷與尊重他人的公平\n社-中-3-3-2 ---->\n社-中-3-3-3 ---->", age56: "社-大-3-3-1 ---->\n社-大-3-3-2 ---->\n社-大-3-3-3 ---->" },
+      { domain: "社會", ability: "愛護與尊重", aspect: "人與人", objective: "社-3-4 尊重他人的身體自主權", age23: "", age34: "", age45: "社-中-3-4-1 尊重他人身體的隱私部位", age56: "社-大-3-4-1 ---->" },
+      { domain: "社會", ability: "愛護與尊重", aspect: "人與環境", objective: "社-3-5 尊重生活環境中文化的多元現象", age23: "", age34: "", age45: "社-中-3-5-1 尊重他人所擁有的各種活動語言與生活習俗", age56: "社-大-3-5-1 ---->\n社-大-3-5-2 對於不同人的語言與生活習俗" },
+      { domain: "社會", ability: "愛護與尊重", aspect: "人與環境", objective: "社-3-6 關懷生活環境中的生命", age23: "社-幼-3-6-1 關懷愛護動植物", age34: "社-小-3-6-1 ---->", age45: "社-中-3-6-1 維護生活環境的整潔\n社-中-3-6-2 節約資源", age56: "社-大-3-6-1 樂於參與自然、愛護生命\n社-大-3-6-2 ---->" },
+
+      { domain: "情緒", ability: "覺察與辨識", aspect: "自己", objective: "情-1-1 覺察與辨識自己的情緒", age23: "情-幼-1-1-1 知道自己常出現的正負向情緒\n情-幼-1-1-2 知道自己的同一種情緒存在著兩種程度上的差異", age34: "情-小-1-1-1 ---->\n情-小-1-1-2 ---->", age45: "情-中-1-1-1 辨認自己常出現的複雜情緒\n情-中-1-1-2 辨別自己的同一種情緒程度上的差異\n情-中-1-1-3 辨識自己在同一事件中存在著多種情緒", age56: "情-大-1-1-1 ---->\n情-大-1-1-2 辨識自己的同一種情緒在不同情境中會出現程度上的差異\n情-大-1-1-3 ---->" },
+      { domain: "情緒", ability: "覺察與辨識", aspect: "他人與環境", objective: "情-1-2 覺察與辨識生活環境中他人和擬人化物件的情緒", age23: "情-幼-1-2-1 覺察與辨識常接觸的人和擬人化物件的情緒", age34: "情-小-1-2-1 ---->\n情-小-1-2-2 知道各種文本中主角的情緒", age45: "情-中-1-2-1 從事件脈絡中辨識他人和擬人化物件的情緒\n情-中-1-2-2 辨識各種文本主角的情緒", age56: "情-大-1-2-1 ---->\n情-大-1-2-2 ---->" },
+      { domain: "情緒", ability: "表達", aspect: "自己", objective: "情-2-1 合宜地表達自己的情緒", age23: "情-幼-2-1-2 運用動作或表情表達自己的情緒", age34: "情-小-2-1-1 言說表達自己的情緒\n情-小-2-1-2 運用動作、表情、語言表達自己的情緒", age45: "情-中-2-1-1 ---->\n情-中-2-1-2 ---->\n情-中-2-1-3 以符合情境文化的方式表達自己的情緒", age56: "情-大-2-1-1 ---->\n情-大-2-1-2 ---->\n情-大-2-1-3 ---->" },
+      { domain: "情緒", ability: "表達", aspect: "他人與環境", objective: "情-2-2 適當地表達生活環境中他人和擬人化物件的情緒", age23: "", age34: "情-小-2-2-1 以表情或動作表達家人、朋友或寵物的情緒", age45: "情-中-2-2-1 適時地使用語言或非語言的形式表達生活環境中他人或擬人化物件的情緒", age56: "情-大-2-2-1 ---->" },
+      { domain: "情緒", ability: "理解", aspect: "自己", objective: "情-3-1 理解自己情緒出現的原因", age23: "情-幼-3-1-1 知道自己情緒出現的原因", age34: "情-小-3-1-1 ---->", age45: "情-中-3-1-1 知道自己複雜情緒出現的原因\n情-中-3-1-2 知道自己在同一事件中產生多種情緒的原因", age56: "情-大-3-1-1 ---->\n情-大-3-1-2 ---->" },
+      { domain: "情緒", ability: "理解", aspect: "他人與環境", objective: "情-3-2 理解生活環境中他人和擬人化物件情緒生的原因", age23: "", age34: "情-小-3-2-1 知道常接觸的人其情緒產生的原因", age45: "情-中-3-2-1 理解常見事件中人或擬人化物件情緒產生的原因\n情-中-3-2-2 探究各類文本中主要角色情緒生的原因", age56: "情-大-3-2-1 ---->\n情-大-3-2-2 ---->" },
+      { domain: "情緒", ability: "調節", aspect: "自己", objective: "情-4-1 運用策略調節自己的情緒", age23: "情-幼-4-1-1 覺察自己常出現的負向情緒", age34: "情-小-4-1-1 ---->\n情-小-4-1-2 聽懂分離焦慮故事中的情緒", age45: "情-中-4-1-1 運用等待或改變想法的策略調節自己的情緒\n情-中-4-1-2 ---->", age56: "情-大-4-1-1 ---->\n情-大-4-1-2 ---->" },
+
+      { domain: "美感", ability: "探索與覺察", aspect: "情意", objective: "美-1-1 覺察生活環境中熟悉的美感經驗", age23: "美-幼-1-1-1 探索生活環境中容物的造型、體驗各種美感經驗", age34: "美-小-1-1-1 ---->", age45: "美-中-1-1-1 ---->", age56: "美-大-1-1-1 ---->" },
+      { domain: "美感", ability: "探索與覺察", aspect: "藝術媒介", objective: "美-1-2 運用五官或受生活環境中各種形式的美", age23: "美-幼-1-2-1 探索生活環境中事物的色彩、形狀、音韻的美\n美-幼-1-2-2 探索生活環境中各種聲音\n美-幼-1-2-3 探索日常生活中各種感官經驗與情緒經驗", age34: "美-小-1-2-1 ---->\n美-小-1-2-2 ---->\n美-小-1-2-3 覺察並回應日常生活中各種感官經驗與情緒經驗", age45: "美-中-1-2-1 探索生活環境中事物的色彩、形狀、聲韻的美,感受其中的差異\n美-中-1-2-2 探索生活環境中各種聲音,感受其中的差異\n美-中-1-2-3 ---->", age56: "美-大-1-2-1 ---->\n美-大-1-2-2 ---->\n美-大-1-2-3 ---->" },
+      { domain: "美感", ability: "表現與創作", aspect: "情意", objective: "美-2-1 發展想像並进行個人獨特的創作", age23: "美-幼-2-1-1 享受玩弄各種動靜媒介的樂趣", age34: "美-小-2-1-1 ---->", age45: "美-中-2-1-1 玩弄各種動靜媒介,發揮想像並享受自我表現的樂趣", age56: "美-大-2-1-1 ---->" },
+      { domain: "美感", ability: "表現與創作", aspect: "藝術媒介", objective: "美-2-2 運用各種形式的藝術媒介進行創作", age23: "美-幼-2-2-5 運用簡單的動作或玩物,進行生活中的藝術創作遊戲", age34: "美-小-2-2-1 把玩各種視覺藝術的素材與工具,進行創作\n美-小-2-2-2 運用描繪、形狀或色彩表現想法、並能完成歌謠或童謠\n美-小-2-2-3 以呼喊、打擊樂器或身體動作模仿影響的簡單節奏創作\n美-小-2-2-4 以各低強弱快慢等音樂元素表達感受\n美-小-2-2-5 ---->", age45: "美-中-2-2-1 運用各種視覺藝術素材與工具,進行創作\n美-中-2-2-2 運用描繪、形狀或色彩,進行創作\n美-中-2-2-3 以呼喊、打擊樂器或身體動作協調到的展現歌曲旋律\n美-中-2-2-4 ---->\n美-中-2-2-5 運用動作、玩物或口語,進行扮演\n美-中-2-2-6 進行兩人以上的互動扮演", age56: "美-大-2-2-1 運用各種視覺藝術素材與工具的特性,進行創作\n美-大-2-2-2 ---->\n美-大-2-2-3 運用呼喊、打擊樂器或身體動作進行創作\n美-大-2-2-4 ---->\n美-大-2-2-5 ---->\n美-大-2-2-6 ---->" },
+      { domain: "美感", ability: "回應與賞析", aspect: "情意", objective: "美-3-1 欣賞與融合藝術創作回應個人的感受", age23: "美-幼-3-1-1 欣賞與融視覺藝術、音樂或歌謠等創作表現", age34: "美-小-3-1-1 ---->", age45: "美-中-3-1-1 欣賞與融視覺藝術、音樂或歌謠等創作表現,回應個人的感受\n美-中-3-1-2 樂於參與在地藝術創作或展演活動", age56: "美-大-3-1-1 ---->\n美-大-3-1-2 ---->" },
+      { domain: "美感", ability: "回應與賞析", aspect: "藝術媒介", objective: "美-3-2 欣賞藝術創作或展演活動,回應個人的看法", age23: "", age34: "美-小-3-2-1 欣賞視覺藝術創作,描述作品的特色\n美-小-3-2-2 欣賞音樂創作,描述他人體驗部分的特色\n美-小-3-2-3 欣賞舞蹈表現,描述他人體驗部分的特色", age45: "美-中-3-2-1 ---->\n美-中-3-2-2 ---->\n美-中-3-2-3 ---->", age56: "美-大-3-2-1 欣賞視覺藝術創作,依個人偏好說明作品的內容與特色\n美-大-3-2-2 ---->\n美-大-3-2-3 欣賞舞蹈表現,依個人偏好說明表演的特色" }
+    ];
+
+    window.initIndicatorsDb = async () => {
+        if(!currentUser) return;
+        const btn = document.getElementById('btn-init-ind');
+        btn.disabled = true;
+        btn.innerHTML = '<i data-lucide="loader-2" class="animate-spin w-5 h-5"></i> 資料匯入中...';
+        lucide.createIcons();
+
+        const batch = writeBatch(db);
+        const colRef = getCol("bear_indicators");
+        
+        INITIAL_INDICATORS_DATA.forEach(data => {
+            const newRef = doc(colRef);
+            batch.set(newRef, data);
+        });
+
+        try {
+            await batch.commit();
+            window.showAlert('✅ 學習指標資料庫初始化完成！');
+        } catch (e) {
+            console.error('初始化失敗:', e);
+            window.showAlert('❌ 初始化失敗，請確認您的 Firebase 規則是否開放。');
+            btn.disabled = false;
+            btn.innerHTML = '開始初始化資料庫';
+        }
+    };
+
+    window.handleIndFilterChange = (type) => {
+        const val = document.getElementById(`ind-filter-${type}`).value;
+        indFilters[type] = val;
+        
+        if (type === 'domain') { indFilters.ability = ''; indFilters.aspect = ''; indFilters.objective = ''; }
+        if (type === 'ability') { indFilters.aspect = ''; indFilters.objective = ''; }
+        if (type === 'aspect') { indFilters.objective = ''; }
+        
+        renderIndicators();
+    };
+
+    window.renderIndicators = () => {
+        if (indicatorsDb.length === 0) {
+            document.getElementById('ind-init-section').classList.remove('hidden-view');
+            document.getElementById('ind-main-section').classList.add('hidden-view');
+            return;
+        }
+        
+        document.getElementById('ind-init-section').classList.add('hidden-view');
+        document.getElementById('ind-main-section').classList.remove('hidden-view');
+
+        // 過濾選項
+        let filteredForAbility = indicatorsDb;
+        if(indFilters.domain) filteredForAbility = filteredForAbility.filter(i => i.domain === indFilters.domain);
+        
+        let filteredForAspect = filteredForAbility;
+        if(indFilters.ability) filteredForAspect = filteredForAspect.filter(i => i.ability === indFilters.ability);
+
+        let filteredForObj = filteredForAspect;
+        if(indFilters.aspect) filteredForObj = filteredForObj.filter(i => i.aspect === indFilters.aspect);
+
+        const uniqueDomains = [...new Set(indicatorsDb.map(item => item.domain))].filter(Boolean);
+        const uniqueAbilities = [...new Set(filteredForAbility.map(item => item.ability))].filter(Boolean);
+        const uniqueAspects = [...new Set(filteredForAspect.map(item => item.aspect))].filter(Boolean);
+        const uniqueObjs = [...new Set(filteredForObj.map(item => item.objective))].filter(Boolean);
+
+        const updateSelect = (id, options, defaultText, currentValue) => {
+            const el = document.getElementById(id);
+            if(!el) return;
+            let html = `<option value="">-- ${defaultText} --</option>`;
+            options.forEach(o => { html += `<option value="${o}" ${o===currentValue?'selected':''}>${o}</option>`; });
+            el.innerHTML = html;
+        };
+
+        updateSelect('ind-filter-domain', uniqueDomains, '全部領域', indFilters.domain);
+        updateSelect('ind-filter-ability', uniqueAbilities, '全部能力', indFilters.ability);
+        updateSelect('ind-filter-aspect', uniqueAspects, '全部面向', indFilters.aspect);
+        updateSelect('ind-filter-objective', uniqueObjs, '全部課程目標', indFilters.objective);
+        
+        document.getElementById('ind-filter-ability').disabled = !indFilters.domain && uniqueAbilities.length === 0;
+        document.getElementById('ind-filter-aspect').disabled = !indFilters.ability && uniqueAspects.length === 0;
+        document.getElementById('ind-filter-objective').disabled = !indFilters.aspect && uniqueObjs.length === 0;
+
+        // 查詢結果
+        let results = indicatorsDb;
+        if (indFilters.domain) results = results.filter(item => item.domain === indFilters.domain);
+        if (indFilters.ability) results = results.filter(item => item.ability === indFilters.ability);
+        if (indFilters.aspect) results = results.filter(item => item.aspect === indFilters.aspect);
+        if (indFilters.objective) results = results.filter(item => item.objective === indFilters.objective);
+
+        document.getElementById('ind-results-count').innerText = results.length;
+
+        const container = document.getElementById('ind-results-container');
+        if (results.length === 0) {
+            container.innerHTML = '<div class="text-center py-12 text-white/50 border-2 border-dashed border-white/20 rounded-xl">找不到符合條件的指標，請調整上方篩選條件。</div>';
+            return;
+        }
+
+        let resultsHtml = '';
+        results.forEach((item, index) => {
+            const ageAge = indFilters.age;
+            
+            let ageHtml = '';
+            if (ageAge === 'ALL' || ageAge === 'age23') {
+                ageHtml += `
+                <div class="bg-white/5 p-3 rounded border border-white/10 flex flex-col h-full relative group">
+                    <span class="text-xs text-orange-300 font-bold border-b border-white/10 pb-1 mb-2 text-center">2-3 歲學習指標</span>
+                    <textarea id="ind-text-${index}-23" readonly class="text-sm text-white/90 bg-transparent resize-none outline-none flex-1 w-full" rows="3">${item.age23 || '-'}</textarea>
+                    ${item.age23 ? `<button onclick="copyText('ind-text-${index}-23')" class="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 text-[10px] bg-blue-500/80 hover:bg-blue-400 text-white px-2 py-1 rounded shadow transition-all">複製</button>` : ''}
+                </div>`;
+            }
+            if (ageAge === 'ALL' || ageAge === 'age34') {
+                ageHtml += `
+                <div class="bg-white/5 p-3 rounded border border-white/10 flex flex-col h-full relative group">
+                    <span class="text-xs text-orange-300 font-bold border-b border-white/10 pb-1 mb-2 text-center">3-4 歲學習指標</span>
+                    <textarea id="ind-text-${index}-34" readonly class="text-sm text-white/90 bg-transparent resize-none outline-none flex-1 w-full" rows="3">${item.age34 || '-'}</textarea>
+                    ${item.age34 ? `<button onclick="copyText('ind-text-${index}-34')" class="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 text-[10px] bg-blue-500/80 hover:bg-blue-400 text-white px-2 py-1 rounded shadow transition-all">複製</button>` : ''}
+                </div>`;
+            }
+            if (ageAge === 'ALL' || ageAge === 'age45') {
+                ageHtml += `
+                <div class="bg-white/5 p-3 rounded border border-white/10 flex flex-col h-full relative group">
+                    <span class="text-xs text-orange-300 font-bold border-b border-white/10 pb-1 mb-2 text-center">4-5 歲學習指標</span>
+                    <textarea id="ind-text-${index}-45" readonly class="text-sm text-white/90 bg-transparent resize-none outline-none flex-1 w-full" rows="3">${item.age45 || '-'}</textarea>
+                    ${item.age45 ? `<button onclick="copyText('ind-text-${index}-45')" class="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 text-[10px] bg-blue-500/80 hover:bg-blue-400 text-white px-2 py-1 rounded shadow transition-all">複製</button>` : ''}
+                </div>`;
+            }
+            if (ageAge === 'ALL' || ageAge === 'age56') {
+                ageHtml += `
+                <div class="bg-white/5 p-3 rounded border border-white/10 flex flex-col h-full relative group">
+                    <span class="text-xs text-orange-300 font-bold border-b border-white/10 pb-1 mb-2 text-center">5-6 歲學習指標</span>
+                    <textarea id="ind-text-${index}-56" readonly class="text-sm text-white/90 bg-transparent resize-none outline-none flex-1 w-full" rows="3">${item.age56 || '-'}</textarea>
+                    ${item.age56 ? `<button onclick="copyText('ind-text-${index}-56')" class="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 text-[10px] bg-blue-500/80 hover:bg-blue-400 text-white px-2 py-1 rounded shadow transition-all">複製</button>` : ''}
+                </div>`;
+            }
+
+            resultsHtml += `
+            <div class="bg-black/20 border border-white/20 rounded-xl overflow-hidden shadow-inner">
+              <div class="bg-white/10 p-3 border-b border-white/20 flex flex-wrap gap-2 items-center">
+                <span class="bg-purple-600/60 text-white px-2 py-1 rounded text-xs font-bold tracking-wider">${item.domain}</span>
+                <span class="text-white/50 text-xs">&gt;</span>
+                <span class="bg-blue-600/60 text-white px-2 py-1 rounded text-xs font-bold tracking-wider">${item.ability}</span>
+                <span class="text-white/50 text-xs">&gt;</span>
+                <span class="bg-green-600/60 text-white px-2 py-1 rounded text-xs font-bold tracking-wider">${item.aspect}</span>
+                <div class="w-full mt-2">
+                   <span class="text-lg font-bold text-yellow-300">${item.objective}</span>
+                </div>
+              </div>
+              <div class="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                ${ageHtml}
+              </div>
+            </div>`;
+        });
+        container.innerHTML = resultsHtml;
+    };
+
 
     // ================= 點名簿系統 (浮動工具) =================
     window.toggleAttendance = () => {
@@ -946,8 +1213,6 @@ service cloud.firestore {
              return;
         }
 
-        // 只有在學生數量改變、資料被修改過，或是目前為空資料時才重新產生整個 HTML
-        // 以防止在打卡時畫面一直刷新重繪，導致選單閃爍
         if (window.forceRebuildAttendance || currentItemCount !== currentYearStudents.length || currentList.innerHTML.includes('正在讀取')) {
             let listHtml = '';
             currentYearStudents.forEach(s => {
@@ -979,7 +1244,6 @@ service cloud.firestore {
         syncAttendanceDataToUI(); // 將狀態同步回去
     };
 
-    // 將資料庫狀態綁定到現有的 HTML (不破壞目前的焦點與輸入)
     window.syncAttendanceDataToUI = () => {
         const dateStr = document.getElementById('attendance-date').value;
         if(!dateStr) return;
@@ -1029,7 +1293,6 @@ service cloud.firestore {
         document.getElementById('att-sum-present').innerText = presentCount;
         document.getElementById('att-sum-leave').innerText = leaveCount;
         
-        // 渲染請假細節明細
         let breakdownHtml = '';
         if(sickList.length > 0) breakdownHtml += `<div class="text-[13px] text-red-200 mb-1">病假 ${sickList.length}人：${sickList.join('、')}</div>`;
         if(personalList.length > 0) breakdownHtml += `<div class="text-[13px] text-orange-200">事假 ${personalList.length}人：${personalList.join('、')}</div>`;
@@ -1048,14 +1311,12 @@ service cloud.firestore {
         const reasonEl = document.getElementById(`reason_${studentId}`);
         const reason = status === 'leave' ? reasonEl.value : '';
 
-        // 立即改變畫面的 Toggle 顯示
         const reasonContainer = document.getElementById(`leave-reason-${studentId}`);
         if (reasonContainer) {
             if (status === 'leave') reasonContainer.classList.remove('hidden');
             else reasonContainer.classList.add('hidden');
         }
 
-        // 立即改變畫面的名字顏色
         const nameSpan = document.getElementById(`att-name-${studentId}`);
         if (nameSpan) {
             nameSpan.className = `font-bold ${status==='leave'?'text-red-300':(status==='attend'?'text-green-200':'')}`;
@@ -1090,12 +1351,10 @@ service cloud.firestore {
         if(personalList.length > 0) breakdownHtml += `<div class="text-[13px] text-orange-200">事假 ${personalList.length}人：${personalList.join('、')}</div>`;
         document.getElementById('att-leave-breakdown').innerHTML = breakdownHtml;
 
-        // 準備儲存至資料庫
         const dayData = attendanceData.find(a => a.id === dateStr) || { records: {} };
         const newRecords = { ...dayData.records };
         newRecords[studentId] = { status, reason };
         
-        // 預先樂觀寫入本地快取陣列，防止重新刷新洗掉畫面
         if (!attendanceData.find(a => a.id === dateStr)) {
             attendanceData.push({ id: dateStr, date: dateStr, records: newRecords });
         } else {
@@ -1103,9 +1362,8 @@ service cloud.firestore {
         }
 
         try {
-            await setDoc(doc(db, "bear_attendance", dateStr), { date: dateStr, records: newRecords }, { merge: true });
+            await setDoc(getDoc("bear_attendance", dateStr), { date: dateStr, records: newRecords }, { merge: true });
             
-            // 顯示已儲存的小提示，增加使用者安心感
             const savedTag = document.getElementById(`att-saved-${studentId}`);
             if (savedTag) {
                 savedTag.classList.remove('opacity-0');
@@ -1113,7 +1371,6 @@ service cloud.firestore {
             }
             updateDailyCardAttendance();
 
-            // 自動跳轉到下一位學生
             if (status !== '') {
                 const currentIndex = currentYearStudents.findIndex(s => s.id === studentId);
                 if (currentIndex !== -1 && currentIndex + 1 < currentYearStudents.length) {
@@ -1130,15 +1387,14 @@ service cloud.firestore {
         }
     };
     
-    // 更新每日卡片的點名資訊 (不重新 render 整個區域)
     const updateDailyCardAttendance = () => {
         const weekDays = getWeekDays(schCurrentDate).slice(0, 5);
         const currentYearStudents = [...studentsData].filter(s => s.academicYear === schSettings.academicYear);
         const total = currentYearStudents.length;
         
         weekDays.forEach((d, index) => {
-             const dateStr = formatDate(d); // YYYY/MM/DD
-             const docId = dateStr.replace(/\//g, '-'); // YYYY-MM-DD
+             const dateStr = formatDate(d); 
+             const docId = dateStr.replace(/\//g, '-'); 
              
              const dayAtt = attendanceData.find(a => a.id === docId) || { records: {} };
              let presentCount = 0;
@@ -1175,10 +1431,12 @@ service cloud.firestore {
     window.navigate = (viewId) => {
       const doNavigate = () => {
           currentView = viewId;
-          ['home', 'annual', 'students', 'books', 'schedule'].forEach(v => {
-            document.getElementById(`view-${v}`).classList.add('hidden-view');
+          ['home', 'annual', 'students', 'books', 'schedule', 'indicators'].forEach(v => {
+            const el = document.getElementById(`view-${v}`);
+            if(el) el.classList.add('hidden-view');
           });
-          document.getElementById(`view-${viewId}`).classList.remove('hidden-view');
+          const targetEl = document.getElementById(`view-${viewId}`);
+          if(targetEl) targetEl.classList.remove('hidden-view');
           
           const btnHome = document.getElementById('btn-back-home');
           if(viewId === 'home') btnHome.classList.add('hidden-view');
@@ -1212,6 +1470,9 @@ service cloud.firestore {
           }
           renderAttendance(); 
       }
+      if (currentView === 'indicators') {
+          renderIndicators();
+      }
       lucide.createIcons();
     };
 
@@ -1233,7 +1494,6 @@ service cloud.firestore {
       }
     };
 
-    // 新增 parameter `fetchFromDb` 以決定是否覆蓋日期欄位
     window.renderAnnual = (fetchFromDb = false) => {
       const year = document.getElementById('annual-year').value || '114';
       const semester = document.getElementById('annual-semester').value || '下學期';
@@ -1252,7 +1512,6 @@ service cloud.firestore {
           if (dataObj && dataObj.startDate) {
               sdInput.value = dataObj.startDate;
           } else {
-              // 算好預設的星期一塞進去
               const defaultStart = getSemesterStartMonday(year, semester);
               const yyyy = defaultStart.getFullYear();
               const mm = String(defaultStart.getMonth() + 1).padStart(2, '0');
@@ -1268,7 +1527,6 @@ service cloud.firestore {
         savedWeeks = Array(21).fill({ events: '', theme: '', obj: '' });
       }
 
-      // 依據輸入框的日期來建立行事曆
       let startMonday = new Date(document.getElementById('annual-start-date').value);
       if(isNaN(startMonday)) startMonday = getSemesterStartMonday(year, semester);
       
@@ -1328,7 +1586,7 @@ service cloud.firestore {
         
         if (evEl) {
             evEl.value = savedData.events || '';
-            window.updateHighlights(index); // 初次載入就根據文字進行螢光筆標記
+            window.updateHighlights(index); 
         }
         if (thEl) thEl.value = savedData.theme || '';
         if (obEl) obEl.value = savedData.obj || '';
@@ -1367,14 +1625,14 @@ service cloud.firestore {
           lucide.createIcons();
         }
         
-        await setDoc(doc(db, "bear_annualEvents", docId), { year, semester, startDate, weeks }, { merge: true });
+        await setDoc(getDoc("bear_annualEvents", docId), { year, semester, startDate, weeks }, { merge: true });
         window.hasUnsavedAnnualChanges = false;
 
         const newSettings = { academicYear: year, semester: semester };
         if (schSettings.id) {
-          await updateDoc(doc(db, "bear_scheduleSettings", schSettings.id), newSettings);
+          await updateDoc(getDoc("bear_scheduleSettings", schSettings.id), newSettings);
         } else {
-          await addDoc(collection(db, "bear_scheduleSettings"), { ...schSettings, ...newSettings });
+          await addDoc(getCol("bear_scheduleSettings"), { ...schSettings, ...newSettings });
         }
         
         if (btn) {
@@ -1395,15 +1653,6 @@ service cloud.firestore {
     window.handleAiFileParse = async (event) => {
         const file = event.target.files[0];
         if (!file) return;
-
-        let activeKey = localStorage.getItem('bearClass_geminiApiKey');
-        if (!activeKey && apiKey) activeKey = apiKey; 
-
-        if (!activeKey || activeKey.trim() === '') {
-            window.showAlert('⚠️ 請先在上方欄位貼上您的 Google Gemini API Key 才能使用 AI 功能喔！');
-            event.target.value = ''; 
-            return; 
-        }
 
         const loadingScreen = document.getElementById('loading-screen');
         loadingScreen.classList.remove('hidden-view');
@@ -1461,9 +1710,7 @@ service cloud.firestore {
         } catch (e) {
             console.error("AI Parse Error:", e);
             if (e.message === 'API_KEY_INVALID') {
-                window.showAlert('❌ 解析失敗！您的 API 金鑰無效或沒有權限，請確認上方的金鑰輸入正確。');
-            } else if (e.message === 'MISSING_API_KEY') {
-                window.showAlert('⚠️ 請先在上方欄位貼上您的 Google Gemini API Key 才能使用 AI 功能喔！');
+                window.showAlert('❌ 解析失敗！您的 API 金鑰無效或沒有權限，請確認原始碼中的金鑰設定。');
             } else if (e.message === 'QUOTA_EXCEEDED') {
                 window.showAlert('⏳ 免費額度限制 (Quota Exceeded)！<br>您呼叫 AI 的頻率太快了，請「等待約 1 分鐘」後再試一次。');
             } else {
@@ -1499,7 +1746,7 @@ service cloud.firestore {
     // =============== 模組 1: 學生管理 ===============
     const renderStudents = () => {
       const filterSelect = document.getElementById('stu-filter-year');
-      let filterYear = filterSelect.value;
+      let filterYear = filterSelect ? filterSelect.value : '';
       
       const uniqueYears = [...new Set(studentsData.map(s => s.academicYear))].filter(y=>y).sort((a,b) => b-a);
       
@@ -1507,43 +1754,56 @@ service cloud.firestore {
       uniqueYears.forEach(y => {
           optionsHtml += `<option value="${y}" ${filterYear === String(y) ? 'selected' : ''}>${y}學年</option>`;
       });
-      if(!filterSelect.innerHTML || !filterYear) {
-          filterSelect.innerHTML = optionsHtml;
-          filterYear = schSettings.academicYear || uniqueYears[0] || '114';
-          filterSelect.value = filterYear;
-      } else {
-          filterSelect.innerHTML = optionsHtml;
-          filterSelect.value = filterYear;
+      
+      if(filterSelect) {
+          if(!filterSelect.innerHTML || !filterYear) {
+              filterSelect.innerHTML = optionsHtml;
+              filterYear = schSettings.academicYear || uniqueYears[0] || '114';
+              filterSelect.value = filterYear;
+          } else {
+              filterSelect.innerHTML = optionsHtml;
+              filterSelect.value = filterYear;
+          }
       }
 
       let displayStudents = studentsData;
-      if (filterYear !== 'ALL') {
+      if (filterYear && filterYear !== 'ALL') {
           displayStudents = studentsData.filter(s => s.academicYear === filterYear);
       }
       
       const boys = displayStudents.filter(s => s.gender === '男').length;
       const girls = displayStudents.filter(s => s.gender === '女').length;
-      document.getElementById('student-count').innerText = displayStudents.length;
-      document.getElementById('student-boy-count').innerText = boys;
-      document.getElementById('student-girl-count').innerText = girls;
+      
+      const studentCountEl = document.getElementById('student-count');
+      if(studentCountEl) studentCountEl.innerText = displayStudents.length;
+      
+      const boyCountEl = document.getElementById('student-boy-count');
+      if(boyCountEl) boyCountEl.innerText = boys;
+      
+      const girlCountEl = document.getElementById('student-girl-count');
+      if(girlCountEl) girlCountEl.innerText = girls;
 
       const tbody = document.getElementById('student-table-body');
       const sorted = [...displayStudents].sort((a,b) => Number(a.seatNo) - Number(b.seatNo));
       
-      tbody.innerHTML = sorted.map(s => `
-        <tr class="border-b border-white/20 hover:bg-white/10">
-          <td class="p-2 font-bold text-yellow-300">${s.academicYear || '-'}</td>
-          <td class="p-2">${s.seatNo}</td><td class="p-2 font-bold">${s.name}</td><td class="p-2">${s.gender}</td>
-          <td class="p-2 text-red-200">${s.allergens || '無'}</td><td class="p-2">${s.emergencyContact || '-'}</td><td class="p-2">${s.emergencyPhone || '-'}</td>
-          <td class="p-2 flex justify-center gap-2">
-            <button onclick="editStudent('${s.id}')" class="text-yellow-300 hover:scale-110"><i data-lucide="pen-tool" class="w-5 h-5"></i></button>
-            <button onclick="deleteStudent('${s.id}')" class="text-red-400 hover:scale-110"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
-          </td>
-        </tr>
-      `).join('');
+      if(tbody) {
+          tbody.innerHTML = sorted.map(s => `
+            <tr class="border-b border-white/20 hover:bg-white/10">
+              <td class="p-2 font-bold text-yellow-300">${s.academicYear || '-'}</td>
+              <td class="p-2">${s.seatNo}</td><td class="p-2 font-bold">${s.name}</td><td class="p-2">${s.gender}</td>
+              <td class="p-2 text-red-200">${s.allergens || '無'}</td><td class="p-2">${s.emergencyContact || '-'}</td><td class="p-2">${s.emergencyPhone || '-'}</td>
+              <td class="p-2 flex justify-center gap-2">
+                <button onclick="editStudent('${s.id}')" class="text-yellow-300 hover:scale-110"><i data-lucide="pen-tool" class="w-5 h-5"></i></button>
+                <button onclick="deleteStudent('${s.id}')" class="text-red-400 hover:scale-110"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
+              </td>
+            </tr>
+          `).join('');
+      }
 
       const borrowerSelect = document.getElementById('book-borrower');
-      borrowerSelect.innerHTML = `<option value="">選擇借出人員</option>` + sorted.map(s => `<option value="${s.name}">${s.name} (${s.seatNo})</option>`).join('');
+      if(borrowerSelect) {
+          borrowerSelect.innerHTML = `<option value="">選擇借出人員</option>` + sorted.map(s => `<option value="${s.name}">${s.name} (${s.seatNo})</option>`).join('');
+      }
     };
 
     window.handleStudentSubmit = async (e) => {
@@ -1576,9 +1836,9 @@ service cloud.firestore {
       };
       
       if (editId) {
-        await updateDoc(doc(db, "bear_students", editId), data);
+        await updateDoc(getDoc("bear_students", editId), data);
       } else {
-        await addDoc(collection(db, "bear_students"), data);
+        await addDoc(getCol("bear_students"), data);
       }
       resetStudentForm();
     };
@@ -1627,7 +1887,7 @@ service cloud.firestore {
       if(!currentUser) return;
       window.openConfirm('確定要刪除這筆學生資料嗎？', async () => {
           try {
-              await deleteDoc(doc(db, "bear_students", id));
+              await deleteDoc(getDoc("bear_students", id));
           } catch(e) {
               handleSnapshotError(e);
           }
@@ -1657,28 +1917,34 @@ service cloud.firestore {
     };
 
     const renderBooks = () => {
-      document.getElementById('book-count').innerText = booksData.length;
+      const bookCountEl = document.getElementById('book-count');
+      if(bookCountEl) bookCountEl.innerText = booksData.length;
+      
       const tbody = document.getElementById('book-table-body');
       
-      tbody.innerHTML = booksData.map(b => `
-        <tr class="border-b border-white/20 hover:bg-white/10">
-          <td class="p-2 font-bold text-yellow-200">${b.title}</td><td class="p-2">${b.author || ''}</td>
-          <td class="p-2"><span class="px-2 py-1 rounded text-xs ${b.isBorrowed==='是'?'bg-red-500/50':'bg-green-500/50'}">${b.isBorrowed === '是' ? '借出中' : '在館內'}</span></td>
-          <td class="p-2">${b.borrower || '-'}</td><td class="p-2">${b.borrowDate || '-'}</td>
-          <td class="p-2 flex gap-2">
-            ${b.isBorrowed === '是' ? `<button onclick="returnBook('${b.id}')" class="text-green-300 border border-green-300 px-2 rounded hover:bg-green-300/20 text-sm">歸還</button>` : ''}
-            <button onclick="deleteBook('${b.id}')" class="text-red-400 hover:scale-110"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
-          </td>
-        </tr>
-      `).join('');
+      if(tbody) {
+          tbody.innerHTML = booksData.map(b => `
+            <tr class="border-b border-white/20 hover:bg-white/10">
+              <td class="p-2 font-bold text-yellow-200">${b.title}</td><td class="p-2">${b.author || ''}</td>
+              <td class="p-2"><span class="px-2 py-1 rounded text-xs ${b.isBorrowed==='是'?'bg-red-500/50':'bg-green-500/50'}">${b.isBorrowed === '是' ? '借出中' : '在館內'}</span></td>
+              <td class="p-2">${b.borrower || '-'}</td><td class="p-2">${b.borrowDate || '-'}</td>
+              <td class="p-2 flex gap-2">
+                ${b.isBorrowed === '是' ? `<button onclick="returnBook('${b.id}')" class="text-green-300 border border-green-300 px-2 rounded hover:bg-green-300/20 text-sm">歸還</button>` : ''}
+                <button onclick="deleteBook('${b.id}')" class="text-red-400 hover:scale-110"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
+              </td>
+            </tr>
+          `).join('');
+      }
 
       const cboxArea = document.getElementById('auto-book-checkboxes');
-      cboxArea.innerHTML = booksData.map(b => `
-        <label class="flex items-center gap-2 mb-1 cursor-pointer hover:bg-white/10 p-1 rounded">
-          <input type="checkbox" value="${b.id}" class="auto-book-chk w-4 h-4 accent-green-600" />
-          <span class="truncate">${b.title}</span>
-        </label>
-      `).join('');
+      if(cboxArea) {
+          cboxArea.innerHTML = booksData.map(b => `
+            <label class="flex items-center gap-2 mb-1 cursor-pointer hover:bg-white/10 p-1 rounded">
+              <input type="checkbox" value="${b.id}" class="auto-book-chk w-4 h-4 accent-green-600" />
+              <span class="truncate">${b.title}</span>
+            </label>
+          `).join('');
+      }
     };
 
     window.handleBookSubmit = async (e) => {
@@ -1693,21 +1959,21 @@ service cloud.firestore {
         borrowDate: isBorrowed === '是' ? document.getElementById('book-borrowDate').value : '',
         returnDate: isBorrowed === '是' ? document.getElementById('book-returnDate').value : '',
       };
-      await addDoc(collection(db, "bear_books"), data);
+      await addDoc(getCol("bear_books"), data);
       document.getElementById('form-book').reset();
       toggleBorrowFields();
     };
 
     window.returnBook = async (id) => {
       if(!currentUser) return;
-      await updateDoc(doc(db, "bear_books", id), { isBorrowed: '否', borrower: '', borrowDate: '', returnDate: '' });
+      await updateDoc(getDoc("bear_books", id), { isBorrowed: '否', borrower: '', borrowDate: '', returnDate: '' });
     };
 
     window.deleteBook = (id) => {
       if(!currentUser) return;
       window.openConfirm('確定要刪除這本藏書紀錄嗎？', async () => {
           try {
-              await deleteDoc(doc(db, "bear_books", id));
+              await deleteDoc(getDoc("bear_books", id));
           } catch(e) {
               handleSnapshotError(e);
           }
@@ -1741,7 +2007,8 @@ service cloud.firestore {
         });
         html += `</div></div>`;
       }
-      document.getElementById('auto-arrange-results').innerHTML = html;
+      const resultsEl = document.getElementById('auto-arrange-results');
+      if(resultsEl) resultsEl.innerHTML = html;
     };
 
     // =============== 模組 3: 每週排程與行事曆 ===============
@@ -1866,7 +2133,6 @@ service cloud.firestore {
                   </div>
                   <textarea id="sch-act-${index}" class="schedule-textarea min-h-[80px]" oninput="window.hasUnsavedScheduleChanges=true" onblur="saveDailyDoc('${dateStr}', ${index})" placeholder="請輸入教學活動..."></textarea>
                   
-                  <!-- AI 學習指標區塊 (包含 Flexbox 排版與複製按鈕) -->
                   <div id="sch-ind-container-${index}" class="hidden mt-1 flex-col items-end gap-1">
                       <textarea id="sch-ind-${index}" class="schedule-textarea min-h-[60px] text-indigo-100 border-indigo-400/50 bg-indigo-900/30 text-sm placeholder-indigo-300/50 w-full" oninput="window.hasUnsavedScheduleChanges=true" onblur="saveDailyDoc('${dateStr}', ${index})" placeholder="AI 學習指標參考..."></textarea>
                       <button onclick="copyText('sch-ind-${index}')" class="text-xs bg-indigo-500/70 hover:bg-indigo-400 text-white px-2 py-1 rounded shadow flex items-center gap-1 transition-colors border border-indigo-400"><i data-lucide="copy" class="w-3 h-3"></i> 複製內容</button>
@@ -1883,7 +2149,6 @@ service cloud.firestore {
                   </div>
                   <textarea id="sch-ref-${index}" class="schedule-textarea min-h-[60px]" oninput="window.hasUnsavedScheduleChanges=true" onblur="saveDailyDoc('${dateStr}', ${index})" placeholder="請輸入教學省思..."></textarea>
                   
-                  <!-- AI 學習指標區塊 (教學省思用) -->
                   <div id="sch-ref-ind-container-${index}" class="hidden mt-1 flex-col items-end gap-1">
                       <textarea id="sch-ref-ind-${index}" class="schedule-textarea min-h-[60px] text-indigo-100 border-indigo-400/50 bg-indigo-900/30 text-sm placeholder-indigo-300/50 w-full" oninput="window.hasUnsavedScheduleChanges=true" onblur="saveDailyDoc('${dateStr}', ${index})" placeholder="AI 學習指標參考..."></textarea>
                       <button onclick="copyText('sch-ref-ind-${index}')" class="text-xs bg-indigo-500/70 hover:bg-indigo-400 text-white px-2 py-1 rounded shadow flex items-center gap-1 transition-colors border border-indigo-400"><i data-lucide="copy" class="w-3 h-3"></i> 複製內容</button>
@@ -1944,7 +2209,7 @@ service cloud.firestore {
       
       updateDailyCardAttendance();
 
-      // 自動抓取天氣 API (強制指定臺中市經緯度)
+      // 自動抓取天氣 API
       const toLocalISODate = (date) => {
           const tzOffset = date.getTimezoneOffset() * 60000;
           return new Date(date.getTime() - tzOffset).toISOString().split('T')[0];
@@ -2001,9 +2266,7 @@ service cloud.firestore {
         } catch (e) {
             console.error("AI Indicator Error:", e);
             if (e.message === 'API_KEY_INVALID') {
-                window.showAlert('❌ AI 分析失敗！您的 API 金鑰無效或沒有權限，請確認上方的金鑰輸入正確。');
-            } else if (e.message === 'MISSING_API_KEY') {
-                window.showAlert('⚠️ 請先在上方欄位貼上您的 Google Gemini API Key 才能使用 AI 功能喔！');
+                window.showAlert('❌ AI 分析失敗！您的 API 金鑰無效或沒有權限，請確認原始碼中的金鑰設定正確。');
             } else if (e.message === 'QUOTA_EXCEEDED') {
                 window.showAlert('⏳ 免費額度限制 (Quota Exceeded)！<br>您呼叫 AI 的頻率太快了，請「等待約 1 分鐘」後再試一次。');
             } else {
@@ -2016,20 +2279,11 @@ service cloud.firestore {
         }
     };
 
-    // AI 學習指標分析 (教學省思專用)
     window.analyzeReflectionIndicators = async (index, dateStr) => {
         const actText = document.getElementById(`sch-ref-${index}`).value;
         if (!actText || actText.trim() === '') {
             window.showAlert('⚠️ 請先輸入「教學省思」的內容，AI 才能幫您分析學習指標喔！');
             return;
-        }
-
-        let activeKey = localStorage.getItem('bearClass_geminiApiKey');
-        if (!activeKey && apiKey) activeKey = apiKey; 
-
-        if (!activeKey || activeKey.trim() === '') {
-            window.showAlert('⚠️ 請先在上方欄位貼上您的 Google Gemini API Key 才能使用 AI 功能喔！');
-            return; 
         }
 
         const btn = document.getElementById(`btn-ai-ref-${index}`);
@@ -2054,9 +2308,7 @@ service cloud.firestore {
         } catch (e) {
             console.error("AI Indicator Error:", e);
             if (e.message === 'API_KEY_INVALID') {
-                window.showAlert('❌ AI 分析失敗！您的 API 金鑰無效或沒有權限，請確認上方的金鑰輸入正確。');
-            } else if (e.message === 'MISSING_API_KEY') {
-                window.showAlert('⚠️ 請先在上方欄位貼上您的 Google Gemini API Key 才能使用 AI 功能喔！');
+                window.showAlert('❌ AI 分析失敗！您的 API 金鑰無效或沒有權限，請確認原始碼中的金鑰設定正確。');
             } else if (e.message === 'QUOTA_EXCEEDED') {
                 window.showAlert('⏳ 免費額度限制 (Quota Exceeded)！<br>您呼叫 AI 的頻率太快了，請「等待約 1 分鐘」後再試一次。');
             } else {
@@ -2098,7 +2350,7 @@ service cloud.firestore {
               statusEl.style.opacity = "1";
           }
 
-          await setDoc(doc(db, "bear_scheduleEntries", docId), data, { merge: true });
+          await setDoc(getDoc("bear_scheduleEntries", docId), data, { merge: true });
           window.hasUnsavedScheduleChanges = false;
 
           if (statusEl) {
@@ -2152,7 +2404,6 @@ service cloud.firestore {
           const docId = dateStr.replace(/\//g, '-');
           const entry = scheduleEntriesData.find(e => e.id === docId) || {};
           
-          // 計算該日出席狀況
           const dayAtt = attendanceData.find(a => a.id === docId) || { records: {} };
           let presentCount = 0;
           let leaveCount = 0;
@@ -2270,7 +2521,7 @@ service cloud.firestore {
     const saveSettingsToDb = async (newData, closeCallback) => {
       try {
         if(schSettings.id) {
-          await updateDoc(doc(db, "bear_scheduleSettings", schSettings.id), newData);
+          await updateDoc(getDoc("bear_scheduleSettings", schSettings.id), newData);
         } else {
           const defaultData = {
             academicYear: schSettings.academicYear,
@@ -2279,7 +2530,7 @@ service cloud.firestore {
             coTeacher: schSettings.coTeacher,
             firstWeekLead: schSettings.firstWeekLead
           };
-          await addDoc(collection(db, "bear_scheduleSettings"), { ...defaultData, ...newData });
+          await addDoc(getCol("bear_scheduleSettings"), { ...defaultData, ...newData });
         }
         closeCallback();
       } catch(error) {
@@ -2328,11 +2579,9 @@ service cloud.firestore {
     onAuthStateChanged(auth, (user) => {
       if (user) {
         currentUser = user;
-        
-        // 載入儲存的 API Key 並顯示在輸入框中 (已移除)
 
         onSnapshot(
-          collection(db, "bear_students"), 
+          getCol("bear_students"), 
           snap => {
             studentsData = snap.docs.map(d => ({id: d.id, ...d.data()}));
             
@@ -2353,7 +2602,7 @@ service cloud.firestore {
         );
 
         onSnapshot(
-          collection(db, "bear_attendance"), 
+          getCol("bear_attendance"), 
           snap => {
             attendanceData = snap.docs.map(d => ({id: d.id, ...d.data()}));
             window.isAttendanceLoaded = true;
@@ -2363,9 +2612,18 @@ service cloud.firestore {
           }, 
           handleSnapshotError
         );
+
+        onSnapshot(
+          getCol("bear_indicators"), 
+          snap => {
+            indicatorsDb = snap.docs.map(d => ({id: d.id, ...d.data()}));
+            if(currentView === 'indicators') renderIndicators();
+          }, 
+          handleSnapshotError
+        );
         
         onSnapshot(
-          collection(db, "bear_books"), 
+          getCol("bear_books"), 
           snap => {
             booksData = snap.docs.map(d => ({id: d.id, ...d.data()}));
             if(currentView === 'books') renderCurrentView();
@@ -2374,7 +2632,7 @@ service cloud.firestore {
         );
 
         onSnapshot(
-          collection(db, "bear_annualEvents"), 
+          getCol("bear_annualEvents"), 
           snap => {
             annualEventsData = snap.docs.map(d => ({id: d.id, ...d.data()}));
             if(currentView === 'annual' && !window.hasUnsavedAnnualChanges) {
@@ -2387,7 +2645,7 @@ service cloud.firestore {
         );
 
         onSnapshot(
-          collection(db, "bear_scheduleSettings"), 
+          getCol("bear_scheduleSettings"), 
           snap => {
             if(snap.docs.length > 0) {
               const d = snap.docs[0].data();
@@ -2420,7 +2678,7 @@ service cloud.firestore {
         );
 
         onSnapshot(
-          collection(db, "bear_scheduleEntries"), 
+          getCol("bear_scheduleEntries"), 
           snap => {
             scheduleEntriesData = snap.docs.map(d => ({id: d.id, ...d.data()}));
             if(currentView === 'schedule' && !window.hasUnsavedScheduleChanges) {
