@@ -433,7 +433,7 @@
               <select id="book-borrower" class="chalk-input text-black bg-white">
                 <option value="">選擇借出人員</option>
               </select>
-              <input type="date" id="book-borrowDate" class="chalk-input" title="借出日期">
+              <input type="text" id="book-borrowDate" class="chalk-input" placeholder="借出日或週次 (如: 第1週)">
               <input type="date" id="book-returnDate" class="chalk-input" title="預計還書日期">
             </div>
             <div class="md:col-span-3 flex justify-end gap-2 mt-2">
@@ -464,7 +464,7 @@
                 <th class="p-2 w-32">作者</th>
                 <th class="p-2 w-24">狀態</th>
                 <th class="p-2 w-32">借閱人</th>
-                <th class="p-2 w-32">借出日</th>
+                <th class="p-2 w-32">借出日(週)</th>
                 <th class="p-2 w-32 text-center">操作</th>
               </tr>
             </thead>
@@ -1362,7 +1362,7 @@
             const radAttend = document.querySelector(`input[name="att_${s.id}"][value="attend"]`);
             const radLeave = document.querySelector(`input[name="att_${s.id}"][value="leave"]`);
             if(radAttend) radAttend.checked = (status === 'attend');
-            if(radLeave) radLeave.checked = (status === 'leave');
+            if(radLeave) checked = (status === 'leave');
             
             if(status === 'attend') presentCount++;
             if(status === 'leave') {
@@ -2023,6 +2023,9 @@
       document.getElementById('book-tab-auto').classList.toggle('hidden-view', tab !== 'auto');
       document.getElementById('tab-book-list').classList.toggle('bg-white/30', tab === 'list');
       document.getElementById('tab-book-auto').classList.toggle('bg-white/30', tab === 'auto');
+      if (tab === 'auto') {
+          window.renderAutoArrangeResults();
+      }
     };
 
     window.toggleBorrowFields = () => {
@@ -2262,7 +2265,50 @@
       });
     };
 
-    window.generateAutoArrange = () => {
+    window.renderAutoArrangeResults = () => {
+        const resultsEl = document.getElementById('auto-arrange-results');
+        const actionBtns = document.getElementById('auto-action-buttons');
+        
+        if (!window.currentAutoArrangement || !window.currentAutoArrangement.weeklyArrangements || window.currentAutoArrangement.weeklyArrangements.length === 0) {
+            if (resultsEl) resultsEl.innerHTML = '<div class="text-center text-gray-300 py-10">請設定參數並點擊產生</div>';
+            if (actionBtns) actionBtns.classList.add('hidden-view');
+            return;
+        }
+
+        const weeks = window.currentAutoArrangement.weeks;
+        let html = '';
+        let weekOptions = '';
+
+        window.currentAutoArrangement.weeklyArrangements.forEach((weekObj) => {
+            const w = weekObj.weekIndex;
+            const weekData = weekObj.items;
+            weekOptions += `<option value="${w+1}">${w+1}</option>`;
+            html += `
+              <div class="border-2 border-white/30 p-4 rounded-lg bg-black/10 print-break-inside">
+                <h3 class="text-lg font-bold mb-3 text-yellow-300 border-b border-dashed border-white/30 pb-2">第 ${w + 1} 週</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 text-sm">
+            `;
+            weekData.forEach(item => {
+                const student = item.student;
+                const bk = item.book;
+                html += `
+                  <div class="bg-white/5 p-2 rounded flex flex-col border border-white/10">
+                    <span class="font-bold text-green-200">${student?.seatNo || '-'}號 ${student?.name || '-'}</span>
+                    <span class="truncate">📖 <span class="text-yellow-100">[${bk?.bookNo || '-'}]</span> ${bk?.title || '無書可借'}</span>
+                  </div>
+                `;
+            });
+            html += `</div></div>`;
+        });
+
+        if (resultsEl) resultsEl.innerHTML = html;
+        if (actionBtns) actionBtns.classList.remove('hidden-view'); // 顯示套用與列印按鈕區塊
+        const applySelect = document.getElementById('apply-week-select');
+        if (applySelect) applySelect.innerHTML = weekOptions;
+    };
+
+    window.generateAutoArrange = async () => {
+      if (!currentUser) return;
       if (selectedAutoBookIds.size === 0 || studentsData.length === 0) {
           window.showAlert("⚠️ 請先勾選書籍並確認班級有學生資料。");
           return;
@@ -2276,6 +2322,14 @@
           return;
       }
 
+      const btn = document.querySelector('button[onclick="generateAutoArrange()"]');
+      const oldHtml = btn ? btn.innerHTML : '';
+      if (btn) {
+          btn.innerHTML = '<i data-lucide="loader-2" class="w-5 h-5 animate-spin inline-block"></i> 產生中並寫入資料庫...';
+          btn.disabled = true;
+          lucide.createIcons();
+      }
+
       const weeks = parseInt(document.getElementById('auto-weeks').value) || 1;
       const selectedIds = Array.from(selectedAutoBookIds);
       // 依照書籍編號進行自然排序後再安排分配
@@ -2283,48 +2337,50 @@
           .filter(b => selectedIds.includes(b.id))
           .sort((a,b) => String(a.bookNo || '').localeCompare(String(b.bookNo || ''), undefined, {numeric: true, sensitivity: 'base'}));
       
-      let html = '';
-      let weekOptions = '';
-      window.currentAutoArrangement = { weeks: weeks, data: [] };
+      // 改用 Firebase 支援的 Array of Objects 結構 (避免 nested arrays 錯誤)
+      let arrangementData = { weeks: weeks, weeklyArrangements: [] };
 
       for (let w = 0; w < weeks; w++) {
-        weekOptions += `<option value="${w+1}">${w+1}</option>`;
-        let weekData = [];
-        html += `
-          <div class="border-2 border-white/30 p-4 rounded-lg bg-black/10 print-break-inside">
-            <h3 class="text-lg font-bold mb-3 text-yellow-300 border-b border-dashed border-white/30 pb-2">第 ${w + 1} 週</h3>
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 text-sm">
-        `;
+        let weekItems = [];
         targetStudents.forEach((student, index) => {
           let bookIndex = (index + w) % targetBooks.length;
           const bk = targetBooks[bookIndex];
-          weekData.push({ student: student, book: bk });
-          html += `
-            <div class="bg-white/5 p-2 rounded flex flex-col border border-white/10">
-              <span class="font-bold text-green-200">${student.seatNo}號 ${student.name}</span>
-              <span class="truncate">📖 <span class="text-yellow-100">[${bk?.bookNo || '-'}]</span> ${bk?.title || '無書可借'}</span>
-            </div>
-          `;
+          weekItems.push({ student: student, book: bk || null });
         });
-        window.currentAutoArrangement.data.push(weekData);
-        html += `</div></div>`;
+        arrangementData.weeklyArrangements.push({
+            weekIndex: w,
+            items: weekItems
+        });
       }
 
-      const resultsEl = document.getElementById('auto-arrange-results');
-      if(resultsEl) {
-          resultsEl.innerHTML = html;
-          const actionBtns = document.getElementById('auto-action-buttons');
-          if(actionBtns) actionBtns.classList.remove('hidden-view'); // 顯示套用與列印按鈕區塊
-          const applySelect = document.getElementById('apply-week-select');
-          if(applySelect) applySelect.innerHTML = weekOptions;
+      try {
+          const docId = `${schSettings.academicYear}_${schSettings.semester}`;
+          await setDoc(getDoc("bear_autoArrangements", docId), arrangementData);
+          window.showAlert('✅ 自動安排結果已成功產生並儲存！');
+      } catch (e) {
+          console.error("Generate Arrangement Error:", e);
+          handleSnapshotError(e);
+      } finally {
+          if (btn) {
+              btn.innerHTML = oldHtml;
+              btn.disabled = false;
+              lucide.createIcons();
+          }
       }
     };
 
     // 清除自動安排結果
     window.clearAutoArrange = () => {
-        window.currentAutoArrangement = null;
-        document.getElementById('auto-arrange-results').innerHTML = '<div class="text-center text-gray-300 py-10">請設定參數並點擊產生</div>';
-        document.getElementById('auto-action-buttons').classList.add('hidden-view');
+        if (!currentUser) return;
+        window.openConfirm('確定要清除目前的自動安排結果嗎？', async () => {
+            try {
+                const docId = `${schSettings.academicYear}_${schSettings.semester}`;
+                await deleteDoc(getDoc("bear_autoArrangements", docId));
+                window.showAlert('✅ 自動安排結果已清除！');
+            } catch(e) {
+                handleSnapshotError(e);
+            }
+        });
     };
 
     // 套用自動安排結果至藏書清單
@@ -2334,18 +2390,22 @@
         if (isNaN(selectedWeek)) return;
 
         window.openConfirm(`確定要將「第 ${selectedWeek} 週」的安排結果套用至藏書清單嗎？\n\n系統會自動更新：\n1. 這些書籍的狀態改為「借出中」\n2. 借閱人自動填入對應的學生姓名\n3. 借出日自動填寫為「第 ${selectedWeek} 週」`, async () => {
-            const weekData = window.currentAutoArrangement.data[selectedWeek - 1];
-            if (!weekData) return;
+            
+            // 取得該週的陣列
+            const weekObj = window.currentAutoArrangement.weeklyArrangements.find(w => w.weekIndex === selectedWeek - 1);
+            if (!weekObj || !weekObj.items) return;
 
             const btn = document.querySelector('button[onclick="applyAutoArrangeToBooks()"]');
-            const oldHtml = btn.innerHTML;
-            btn.innerHTML = '<i data-lucide="loader-2" class="w-3 h-3 animate-spin inline-block"></i> 處理中';
-            btn.disabled = true;
-            lucide.createIcons();
+            const oldHtml = btn ? btn.innerHTML : '';
+            if (btn) {
+                btn.innerHTML = '<i data-lucide="loader-2" class="w-3 h-3 animate-spin inline-block"></i> 處理中';
+                btn.disabled = true;
+                lucide.createIcons();
+            }
 
             try {
                 // 平行發送更新請求以加速處理
-                const promises = weekData.map(item => {
+                const promises = weekObj.items.map(item => {
                     if (item.book) {
                         return updateDoc(getDoc("bear_books", item.book.id), {
                             isBorrowed: '是',
@@ -2363,9 +2423,11 @@
                 console.error("Apply Auto Arrange Error:", e);
                 window.showAlert("❌ 套用失敗，請確認資料庫連線權限。");
             } finally {
-                btn.innerHTML = oldHtml;
-                btn.disabled = false;
-                lucide.createIcons();
+                if (btn) {
+                    btn.innerHTML = oldHtml;
+                    btn.disabled = false;
+                    lucide.createIcons();
+                }
             }
         });
     };
@@ -2444,14 +2506,15 @@
 
     // 依學生分組列印每週書單
     window.printStudentAutoArrange = () => {
-        if (!window.currentAutoArrangement) return;
+        if (!window.currentAutoArrangement || !window.currentAutoArrangement.weeklyArrangements) return;
         const year = schSettings.academicYear;
         const sem = schSettings.semester;
 
         // 資料結構轉換：依照學生分類
         const studentsMap = new Map(); 
-        window.currentAutoArrangement.data.forEach((weekData, weekIdx) => {
-            weekData.forEach(item => {
+        window.currentAutoArrangement.weeklyArrangements.forEach((weekObj) => {
+            const weekIdx = weekObj.weekIndex;
+            weekObj.items.forEach(item => {
                 const stKey = `${item.student.seatNo}_${item.student.name}`;
                 if (!studentsMap.has(stKey)) {
                     studentsMap.set(stKey, { seatNo: item.student.seatNo, name: item.student.name, assignments: [] });
@@ -2942,7 +3005,7 @@
     
     const handleSnapshotError = (error) => {
       console.error("Firestore Snapshot Error:", error);
-      if (error.code === 'permission-denied') {
+      if (error && error.code === 'permission-denied') {
         const errorEl = document.getElementById('db-error-message');
         if (errorEl) {
           errorEl.classList.remove('hidden-view');
@@ -2960,6 +3023,8 @@
         
         const loadingEl = document.getElementById('loading-screen');
         if (loadingEl) loadingEl.classList.add('hidden-view');
+      } else if (error) {
+         window.showAlert(`⚠️ 資料處理發生錯誤：<br><br><span class="text-sm text-yellow-200">${error.message || '未知錯誤，請檢查主控台。'}</span>`);
       }
     };
 
@@ -2995,6 +3060,19 @@
         onSnapshot(getCol("bear_books"), snap => {
             booksData = snap.docs.map(d => ({id: d.id, ...d.data()}));
             if(currentView === 'books') renderCurrentView();
+        }, handleSnapshotError);
+
+        onSnapshot(getCol("bear_autoArrangements"), snap => {
+            const docId = `${schSettings.academicYear}_${schSettings.semester}`;
+            const targetDoc = snap.docs.find(d => d.id === docId);
+            if (targetDoc) {
+                window.currentAutoArrangement = targetDoc.data();
+            } else {
+                window.currentAutoArrangement = null;
+            }
+            if(currentView === 'books') {
+                window.renderAutoArrangeResults();
+            }
         }, handleSnapshotError);
 
         onSnapshot(getCol("bear_annualEvents"), snap => {
