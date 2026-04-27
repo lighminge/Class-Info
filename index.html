@@ -422,6 +422,7 @@
           <h2 id="book-form-title" class="text-2xl font-bold mb-4 flex items-center gap-2"><i data-lucide="plus-circle"></i> 新增藏書 / 借閱紀錄</h2>
           <form id="form-book" onsubmit="handleBookSubmit(event)" class="grid grid-cols-1 md:grid-cols-3 gap-4">
             <input type="hidden" id="book-edit-id" value="">
+            <input required type="text" id="book-bookNo" placeholder="書籍編號 (如: 01, A-01)" class="chalk-input font-bold text-yellow-100">
             <input required type="text" id="book-title" placeholder="書名" class="chalk-input">
             <input type="text" id="book-author" placeholder="作者" class="chalk-input">
             <select id="book-isBorrowed" onchange="toggleBorrowFields()" class="chalk-input text-black bg-white">
@@ -458,7 +459,7 @@
           <table class="w-full text-left border-collapse min-w-[800px]">
             <thead>
               <tr class="border-b-2 border-white/50">
-                <th class="p-2 w-12 text-center text-white/50 font-normal">#</th>
+                <th class="p-2 w-20 text-center text-yellow-100">編號</th>
                 <th class="p-2">書名</th>
                 <th class="p-2 w-32">作者</th>
                 <th class="p-2 w-24">狀態</th>
@@ -494,18 +495,50 @@
             <input type="number" id="auto-weeks" min="1" value="1" class="chalk-input w-full">
           </div>
           <div class="mb-4">
-            <label class="block mb-2 text-yellow-200">2. 勾選欲租借的書</label>
-            <div id="auto-book-checkboxes" class="max-h-60 overflow-y-auto border border-white/30 p-2 rounded custom-scrollbar">
+            <div class="flex justify-between items-center mb-2 gap-2 flex-wrap">
+              <label class="text-yellow-200">2. 勾選欲租借的書</label>
+              <div class="flex items-center gap-1.5">
+                <button onclick="selectAllAutoBooks()" class="text-xs bg-white/20 hover:bg-white/30 text-white px-2 py-1 rounded transition-colors shadow">全選</button>
+                <button onclick="clearAllAutoBooks()" class="text-xs bg-white/20 hover:bg-white/30 text-white px-2 py-1 rounded transition-colors shadow">清空</button>
+                <span class="text-sm bg-black/30 px-2 py-1 rounded ml-1 whitespace-nowrap">已選: <span id="auto-selected-count" class="font-bold text-yellow-300">0</span> 本</span>
+              </div>
+            </div>
+            <div id="auto-book-checkboxes" class="max-h-60 overflow-y-auto border border-white/30 p-2 rounded custom-scrollbar mb-2">
               <!-- Checkboxes 產生區 -->
+            </div>
+            <!-- 自動安排 Checkbox 的分頁 -->
+            <div id="auto-book-pagination" class="flex justify-center items-center gap-4 text-sm mt-2 hidden-view">
+               <button onclick="navAutoBookPage(-1)" class="chalk-btn py-1 px-2 border-white/30 text-white/70 hover:bg-white/10 hover:text-white disabled:opacity-30"><i data-lucide="chevron-left" class="w-4 h-4"></i></button>
+               <span id="auto-book-page-info" class="font-bold text-yellow-100">1 / 1</span>
+               <button onclick="navAutoBookPage(1)" class="chalk-btn py-1 px-2 border-white/30 text-white/70 hover:bg-white/10 hover:text-white disabled:opacity-30"><i data-lucide="chevron-right" class="w-4 h-4"></i></button>
             </div>
           </div>
           <button onclick="generateAutoArrange()" class="chalk-btn w-full justify-center bg-yellow-600/50">
             產生每週借閱表
           </button>
         </div>
-        <div class="chalk-box lg:col-span-2 overflow-x-auto custom-scrollbar">
-          <h2 class="text-xl font-bold mb-4">自動安排結果</h2>
-          <div id="auto-arrange-results" class="space-y-6">
+        <div class="chalk-box lg:col-span-2 overflow-x-auto custom-scrollbar flex flex-col">
+          <div class="flex flex-col xl:flex-row justify-between xl:items-center mb-4 gap-4">
+            <h2 class="text-xl font-bold">自動安排結果</h2>
+            <div id="auto-action-buttons" class="hidden-view flex flex-wrap gap-2 items-center xl:justify-end">
+               <div class="flex items-center bg-yellow-900/40 rounded-lg p-1 border border-yellow-500/50 shadow-inner">
+                 <span class="text-[11px] ml-2 mr-1 text-yellow-100">套用第</span>
+                 <select id="apply-week-select" class="chalk-input text-black bg-white text-[11px] py-0.5 px-1.5 rounded w-14 text-center font-bold"></select>
+                 <span class="text-[11px] ml-1 mr-2 text-yellow-100">週</span>
+                 <button onclick="applyAutoArrangeToBooks()" class="text-[11px] bg-yellow-600 hover:bg-yellow-500 text-white px-2.5 py-1 rounded shadow transition-colors font-bold whitespace-nowrap border border-yellow-400">套用至清單</button>
+               </div>
+               <button onclick="printAutoArrange()" class="chalk-btn bg-blue-600/70 text-xs px-2.5 py-1 hover:bg-blue-500 shadow-lg" title="依每週顯示">
+                 <i data-lucide="printer" class="w-3 h-3"></i> 列印(依週次)
+               </button>
+               <button onclick="printStudentAutoArrange()" class="chalk-btn bg-purple-600/70 text-xs px-2.5 py-1 hover:bg-purple-500 shadow-lg" title="依學生顯示每週清單">
+                 <i data-lucide="user" class="w-3 h-3"></i> 列印(依學生)
+               </button>
+               <button onclick="clearAutoArrange()" class="chalk-btn bg-red-600/70 text-xs px-2.5 py-1 hover:bg-red-500 shadow-lg">
+                 <i data-lucide="trash-2" class="w-3 h-3"></i> 清除
+               </button>
+            </div>
+          </div>
+          <div id="auto-arrange-results" class="space-y-6 flex-1">
             <div class="text-center text-gray-300 py-10">請設定參數並點擊產生</div>
           </div>
         </div>
@@ -716,6 +749,10 @@
     // 藏書分頁狀態
     let bookCurrentPage = 1;
     const BOOKS_PER_PAGE = 10;
+    
+    // 自動安排藏書分頁與勾選狀態
+    let autoBookCurrentPage = 1;
+    let selectedAutoBookIds = new Set();
 
     window.addEventListener('beforeunload', (e) => {
       if (window.hasUnsavedAnnualChanges || window.hasUnsavedScheduleChanges) {
@@ -732,6 +769,9 @@
     }
     let viewingWeek = 1;
     let promptCallback = null;
+    
+    // 儲存最新的自動安排結果 (供列印與套用使用)
+    window.currentAutoArrangement = null;
 
     // --- 文本比對演算法 (Bigram) 用於學習指標推薦 ---
     const getBigrams = (text) => {
@@ -2014,23 +2054,25 @@
       
       const tbody = document.getElementById('book-table-body');
       
+      // 使用 natural sort 自然排序法，依照書籍編號小到大排序 (例如: A1, A2, A10 不會錯亂)
+      const sortedBooks = [...booksData].sort((a,b) => String(a.bookNo || '').localeCompare(String(b.bookNo || ''), undefined, {numeric: true, sensitivity: 'base'}));
+      
       if(tbody) {
-          const totalPages = Math.ceil(booksData.length / BOOKS_PER_PAGE) || 1;
+          const totalPages = Math.ceil(sortedBooks.length / BOOKS_PER_PAGE) || 1;
           if (bookCurrentPage > totalPages) bookCurrentPage = totalPages;
           
           const startIdx = (bookCurrentPage - 1) * BOOKS_PER_PAGE;
           const endIdx = startIdx + BOOKS_PER_PAGE;
-          const currentBooks = booksData.slice(startIdx, endIdx);
+          const currentBooks = sortedBooks.slice(startIdx, endIdx);
 
           tbody.innerHTML = currentBooks.map((b, index) => {
-            const actualIndex = startIdx + index + 1;
             const isEditing = document.getElementById('book-edit-id')?.value === b.id;
             const trClass = isEditing ? "bg-yellow-600/30 border-b-2 border-yellow-400 font-bold" : "border-b border-white/20 hover:bg-white/10";
             
             return `
             <tr class="${trClass} transition-colors">
-              <td class="p-2 text-center text-white/50">${actualIndex}</td>
-              <td class="p-2 font-bold text-yellow-200">${b.title}</td><td class="p-2">${b.author || ''}</td>
+              <td class="p-2 text-center text-yellow-200 font-bold">${b.bookNo || '-'}</td>
+              <td class="p-2 font-bold text-white">${b.title}</td><td class="p-2">${b.author || ''}</td>
               <td class="p-2"><span class="px-2 py-1 rounded text-xs ${b.isBorrowed==='是'?'bg-red-500/50':'bg-green-500/50'}">${b.isBorrowed === '是' ? '借出中' : '在館內'}</span></td>
               <td class="p-2">${b.borrower || '-'}</td><td class="p-2">${b.borrowDate || '-'}</td>
               <td class="p-2 flex justify-center gap-2">
@@ -2053,21 +2095,68 @@
           
           const pagination = document.getElementById('book-pagination');
           if (pagination) {
-              if (booksData.length > BOOKS_PER_PAGE) pagination.classList.remove('hidden-view');
+              if (sortedBooks.length > BOOKS_PER_PAGE) pagination.classList.remove('hidden-view');
               else pagination.classList.add('hidden-view');
           }
-          lucide.createIcons();
       }
 
       const cboxArea = document.getElementById('auto-book-checkboxes');
       if(cboxArea) {
-          cboxArea.innerHTML = booksData.map(b => `
-            <label class="flex items-center gap-2 mb-1 cursor-pointer hover:bg-white/10 p-1 rounded">
-              <input type="checkbox" value="${b.id}" class="auto-book-chk w-4 h-4 accent-green-600" />
-              <span class="truncate">${b.title}</span>
+          const autoTotalPages = Math.ceil(sortedBooks.length / BOOKS_PER_PAGE) || 1;
+          if (autoBookCurrentPage > autoTotalPages) autoBookCurrentPage = autoTotalPages;
+          
+          const autoStartIdx = (autoBookCurrentPage - 1) * BOOKS_PER_PAGE;
+          const autoCurrentBooks = sortedBooks.slice(autoStartIdx, autoStartIdx + BOOKS_PER_PAGE);
+
+          cboxArea.innerHTML = autoCurrentBooks.map(b => `
+            <label class="flex items-start gap-2 mb-1 cursor-pointer hover:bg-white/10 p-1.5 rounded transition-colors">
+              <input type="checkbox" value="${b.id}" class="auto-book-chk w-4 h-4 accent-green-600 shrink-0 mt-0.5" onchange="handleAutoBookCheck(this)" ${selectedAutoBookIds.has(b.id) ? 'checked' : ''} />
+              <span class="text-yellow-100 shrink-0">[${b.bookNo || '-'}]</span>
+              <span class="flex-1 break-words leading-snug">${b.title}</span>
             </label>
           `).join('');
+
+          const autoPageInfo = document.getElementById('auto-book-page-info');
+          if (autoPageInfo) autoPageInfo.innerText = `${autoBookCurrentPage} / ${autoTotalPages}`;
+          
+          const autoPagination = document.getElementById('auto-book-pagination');
+          if (autoPagination) {
+              if (sortedBooks.length > BOOKS_PER_PAGE) autoPagination.classList.remove('hidden-view');
+              else autoPagination.classList.add('hidden-view');
+          }
       }
+      
+      lucide.createIcons();
+    };
+
+    window.navAutoBookPage = (dir) => {
+        const totalPages = Math.ceil(booksData.length / BOOKS_PER_PAGE) || 1;
+        let newPage = autoBookCurrentPage + dir;
+        if (newPage < 1) newPage = 1;
+        if (newPage > totalPages) newPage = totalPages;
+        autoBookCurrentPage = newPage;
+        renderBooks();
+    };
+
+    window.handleAutoBookCheck = (chk) => {
+        if(chk.checked) selectedAutoBookIds.add(chk.value);
+        else selectedAutoBookIds.delete(chk.value);
+        const countEl = document.getElementById('auto-selected-count');
+        if(countEl) countEl.innerText = selectedAutoBookIds.size;
+    };
+
+    window.selectAllAutoBooks = () => {
+        booksData.forEach(b => selectedAutoBookIds.add(b.id));
+        const countEl = document.getElementById('auto-selected-count');
+        if(countEl) countEl.innerText = selectedAutoBookIds.size;
+        renderBooks();
+    };
+
+    window.clearAllAutoBooks = () => {
+        selectedAutoBookIds.clear();
+        const countEl = document.getElementById('auto-selected-count');
+        if(countEl) countEl.innerText = selectedAutoBookIds.size;
+        renderBooks();
     };
 
     window.navBookPage = (dir) => {
@@ -2086,6 +2175,7 @@
       const editId = document.getElementById('book-edit-id').value;
 
       const data = {
+        bookNo: document.getElementById('book-bookNo').value,
         title: document.getElementById('book-title').value,
         author: document.getElementById('book-author').value,
         isBorrowed: isBorrowed,
@@ -2113,6 +2203,7 @@
         }
 
         document.getElementById('book-edit-id').value = id;
+        document.getElementById('book-bookNo').value = b.bookNo || '';
         document.getElementById('book-title').value = b.title;
         document.getElementById('book-author').value = b.author || '';
         document.getElementById('book-isBorrowed').value = b.isBorrowed;
@@ -2158,6 +2249,12 @@
       if(!currentUser) return;
       window.openConfirm('確定要刪除這本藏書紀錄嗎？', async () => {
           try {
+              // 若刪除時剛好這本書有在勾選清單，同步移除
+              if (selectedAutoBookIds.has(id)) {
+                  selectedAutoBookIds.delete(id);
+                  const countEl = document.getElementById('auto-selected-count');
+                  if (countEl) countEl.innerText = selectedAutoBookIds.size;
+              }
               await deleteDoc(getDoc("bear_books", id));
           } catch(e) {
               handleSnapshotError(e);
@@ -2166,43 +2263,257 @@
     };
 
     window.generateAutoArrange = () => {
-      const checkedBoxes = document.querySelectorAll('.auto-book-chk:checked');
-      if (checkedBoxes.length === 0 || studentsData.length === 0) {
+      if (selectedAutoBookIds.size === 0 || studentsData.length === 0) {
           window.showAlert("⚠️ 請先勾選書籍並確認班級有學生資料。");
           return;
       }
       
       const targetStudents = [...studentsData].filter(s => s.academicYear === schSettings.academicYear).sort((a,b) => Number(a.seatNo) - Number(b.seatNo));
       
-      if (checkedBoxes.length < targetStudents.length) {
-          window.showAlert(`⚠️ 書籍數量不足！\n目前班級學生有 ${targetStudents.length} 人，但您只勾選了 ${checkedBoxes.length} 本書。\n為了讓每位學生都能借到不同的書，請勾選「大於或等於」學生人數的書籍數量。`);
+      // 【防呆檢核】：勾選的書籍數量不可以小於學生數量
+      if (selectedAutoBookIds.size < targetStudents.length) {
+          window.showAlert(`⚠️ 勾選的書籍數量不足！\n\n目前班級學生有 ${targetStudents.length} 人，但您只勾選了 ${selectedAutoBookIds.size} 本書。\n\n為了讓每位學生都能借到不同的書，請至少勾選「大於或等於」學生人數的書籍數量。`);
           return;
       }
 
       const weeks = parseInt(document.getElementById('auto-weeks').value) || 1;
-      const selectedIds = Array.from(checkedBoxes).map(cb => cb.value);
-      const targetBooks = booksData.filter(b => selectedIds.includes(b.id));
+      const selectedIds = Array.from(selectedAutoBookIds);
+      // 依照書籍編號進行自然排序後再安排分配
+      const targetBooks = [...booksData]
+          .filter(b => selectedIds.includes(b.id))
+          .sort((a,b) => String(a.bookNo || '').localeCompare(String(b.bookNo || ''), undefined, {numeric: true, sensitivity: 'base'}));
       
       let html = '';
+      let weekOptions = '';
+      window.currentAutoArrangement = { weeks: weeks, data: [] };
+
       for (let w = 0; w < weeks; w++) {
+        weekOptions += `<option value="${w+1}">${w+1}</option>`;
+        let weekData = [];
         html += `
-          <div class="border-2 border-white/30 p-4 rounded-lg bg-black/10">
+          <div class="border-2 border-white/30 p-4 rounded-lg bg-black/10 print-break-inside">
             <h3 class="text-lg font-bold mb-3 text-yellow-300 border-b border-dashed border-white/30 pb-2">第 ${w + 1} 週</h3>
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 text-sm">
         `;
         targetStudents.forEach((student, index) => {
           let bookIndex = (index + w) % targetBooks.length;
+          const bk = targetBooks[bookIndex];
+          weekData.push({ student: student, book: bk });
           html += `
-            <div class="bg-white/5 p-2 rounded flex flex-col">
+            <div class="bg-white/5 p-2 rounded flex flex-col border border-white/10">
               <span class="font-bold text-green-200">${student.seatNo}號 ${student.name}</span>
-              <span class="truncate">📖 ${targetBooks[bookIndex]?.title || '無書可借'}</span>
+              <span class="truncate">📖 <span class="text-yellow-100">[${bk?.bookNo || '-'}]</span> ${bk?.title || '無書可借'}</span>
             </div>
           `;
         });
+        window.currentAutoArrangement.data.push(weekData);
         html += `</div></div>`;
       }
+
       const resultsEl = document.getElementById('auto-arrange-results');
-      if(resultsEl) resultsEl.innerHTML = html;
+      if(resultsEl) {
+          resultsEl.innerHTML = html;
+          const actionBtns = document.getElementById('auto-action-buttons');
+          if(actionBtns) actionBtns.classList.remove('hidden-view'); // 顯示套用與列印按鈕區塊
+          const applySelect = document.getElementById('apply-week-select');
+          if(applySelect) applySelect.innerHTML = weekOptions;
+      }
+    };
+
+    // 清除自動安排結果
+    window.clearAutoArrange = () => {
+        window.currentAutoArrangement = null;
+        document.getElementById('auto-arrange-results').innerHTML = '<div class="text-center text-gray-300 py-10">請設定參數並點擊產生</div>';
+        document.getElementById('auto-action-buttons').classList.add('hidden-view');
+    };
+
+    // 套用自動安排結果至藏書清單
+    window.applyAutoArrangeToBooks = async () => {
+        if (!currentUser || !window.currentAutoArrangement) return;
+        const selectedWeek = parseInt(document.getElementById('apply-week-select').value);
+        if (isNaN(selectedWeek)) return;
+
+        window.openConfirm(`確定要將「第 ${selectedWeek} 週」的安排結果套用至藏書清單嗎？\n\n系統會自動更新：\n1. 這些書籍的狀態改為「借出中」\n2. 借閱人自動填入對應的學生姓名\n3. 借出日自動填寫為「第 ${selectedWeek} 週」`, async () => {
+            const weekData = window.currentAutoArrangement.data[selectedWeek - 1];
+            if (!weekData) return;
+
+            const btn = document.querySelector('button[onclick="applyAutoArrangeToBooks()"]');
+            const oldHtml = btn.innerHTML;
+            btn.innerHTML = '<i data-lucide="loader-2" class="w-3 h-3 animate-spin inline-block"></i> 處理中';
+            btn.disabled = true;
+            lucide.createIcons();
+
+            try {
+                // 平行發送更新請求以加速處理
+                const promises = weekData.map(item => {
+                    if (item.book) {
+                        return updateDoc(getDoc("bear_books", item.book.id), {
+                            isBorrowed: '是',
+                            borrower: item.student.name,
+                            borrowDate: `第 ${selectedWeek} 週`
+                        });
+                    }
+                    return Promise.resolve();
+                });
+
+                await Promise.all(promises);
+                window.showAlert(`✅ 成功！第 ${selectedWeek} 週的借閱名單已完美寫入「藏書清單與借閱」中。\n您可以切換分頁查看最新狀態。`);
+                
+            } catch (e) {
+                console.error("Apply Auto Arrange Error:", e);
+                window.showAlert("❌ 套用失敗，請確認資料庫連線權限。");
+            } finally {
+                btn.innerHTML = oldHtml;
+                btn.disabled = false;
+                lucide.createIcons();
+            }
+        });
+    };
+
+    window.printAutoArrange = () => {
+        const resultsHtml = document.getElementById('auto-arrange-results').innerHTML;
+        const year = schSettings.academicYear;
+        const sem = schSettings.semester;
+        
+        const printWindow = window.open('', '', 'height=600,width=800');
+        printWindow.document.write(`
+            <html>
+            <head>
+                <title>藏書租借自動安排結果 (依週次)</title>
+                <style>
+                    body { font-family: "Microsoft JhengHei", "標楷體", sans-serif; padding: 20px; color: #000; }
+                    h2 { text-align: center; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 20px; font-size: 1.8em; }
+                    .week-container { margin-bottom: 30px; page-break-inside: avoid; }
+                    .week-title { font-size: 1.2em; font-weight: bold; margin-bottom: 10px; background-color: #e5e7eb; padding: 5px 10px; border-left: 5px solid #166534; border-radius: 4px;}
+                    .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; }
+                    .item { border: 1px solid #a1a1aa; padding: 8px 12px; border-radius: 6px; box-shadow: 2px 2px 5px rgba(0,0,0,0.05); }
+                    .student { font-weight: bold; color: #166534; font-size: 1.1em; margin-bottom: 4px; border-bottom: 1px dashed #d1d5db; padding-bottom: 4px; }
+                    .book { color: #1f2937; font-size: 1em; font-weight: bold; line-height: 1.4; }
+                    .book-no { color: #b45309; }
+                    @media print {
+                        body { padding: 0; }
+                        .grid { grid-template-columns: repeat(3, 1fr); gap: 10px; }
+                        .week-container { page-break-inside: avoid; }
+                    }
+                </style>
+            </head>
+            <body>
+                <h2>小熊班 ${year}學年度 ${sem} 藏書借閱表 (依週次)</h2>
+                <div id="content">
+        `);
+        
+        // 將系統深色背景的 HTML 轉換為適合列印的乾淨格式
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = resultsHtml;
+        const weeks = tempDiv.querySelectorAll('.p-4.rounded-lg');
+        
+        weeks.forEach(w => {
+            const weekTitle = w.querySelector('h3').innerText;
+            const items = w.querySelectorAll('.p-2.rounded');
+            
+            printWindow.document.write(`<div class="week-container">`);
+            printWindow.document.write(`<div class="week-title">${weekTitle}</div>`);
+            printWindow.document.write(`<div class="grid">`);
+            
+            items.forEach(item => {
+                const student = item.querySelector('.text-green-200').innerText;
+                const bookHTML = item.querySelector('.truncate').innerHTML.replace('📖', '').replace('text-yellow-100', 'book-no');
+                printWindow.document.write(`
+                    <div class="item">
+                        <div class="student">${student}</div>
+                        <div class="book">${bookHTML}</div>
+                    </div>
+                `);
+            });
+            
+            printWindow.document.write(`</div></div>`);
+        });
+        
+        printWindow.document.write(`
+                </div>
+            </body>
+            </html>
+        `);
+        printWindow.document.close();
+        printWindow.focus();
+        setTimeout(() => {
+            printWindow.print();
+            printWindow.close();
+        }, 300);
+    };
+
+    // 依學生分組列印每週書單
+    window.printStudentAutoArrange = () => {
+        if (!window.currentAutoArrangement) return;
+        const year = schSettings.academicYear;
+        const sem = schSettings.semester;
+
+        // 資料結構轉換：依照學生分類
+        const studentsMap = new Map(); 
+        window.currentAutoArrangement.data.forEach((weekData, weekIdx) => {
+            weekData.forEach(item => {
+                const stKey = `${item.student.seatNo}_${item.student.name}`;
+                if (!studentsMap.has(stKey)) {
+                    studentsMap.set(stKey, { seatNo: item.student.seatNo, name: item.student.name, assignments: [] });
+                }
+                studentsMap.get(stKey).assignments.push({ week: weekIdx + 1, book: item.book });
+            });
+        });
+
+        // 照座號排序
+        const sortedStudents = Array.from(studentsMap.values()).sort((a,b) => Number(a.seatNo) - Number(b.seatNo));
+
+        const printWindow = window.open('', '', 'height=600,width=800');
+        printWindow.document.write(`
+            <html>
+            <head>
+                <title>每位學生每週借書清單</title>
+                <style>
+                    body { font-family: "Microsoft JhengHei", "標楷體", sans-serif; padding: 20px; color: #000; }
+                    h2 { text-align: center; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 20px; font-size: 1.8em; }
+                    .student-container { margin-bottom: 25px; page-break-inside: avoid; border: 2px solid #374151; padding: 15px; border-radius: 8px; }
+                    .student-title { font-size: 1.3em; font-weight: bold; margin-bottom: 12px; color: #166534; border-bottom: 2px dashed #9ca3af; padding-bottom: 8px; }
+                    .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+                    .item { border: 1px solid #d1d5db; padding: 8px; border-radius: 4px; background: #f9fafb; text-align: center; }
+                    .week { font-weight: bold; font-size: 0.9em; color: #4b5563; margin-bottom: 4px; border-bottom: 1px solid #e5e7eb; padding-bottom: 3px; }
+                    .book { font-size: 1em; font-weight: bold; color: #111827; padding-top: 3px;}
+                    .book-no { color: #b45309; }
+                    @media print {
+                        body { padding: 0; }
+                        .student-container { page-break-inside: avoid; margin-bottom: 20px; }
+                        .grid { grid-template-columns: repeat(4, 1fr); gap: 10px; }
+                    }
+                </style>
+            </head>
+            <body>
+                <h2>小熊班 ${year}學年度 ${sem} 個人借閱清單</h2>
+                <div id="content">
+        `);
+
+        sortedStudents.forEach(st => {
+            printWindow.document.write(`<div class="student-container">`);
+            printWindow.document.write(`<div class="student-title">👤 ${st.seatNo}號 ${st.name}</div>`);
+            printWindow.document.write(`<div class="grid">`);
+            
+            st.assignments.forEach(a => {
+                const bkHtml = a.book ? `<span class="book-no">[${a.book.bookNo || '-'}]</span><br>${a.book.title}` : '無';
+                printWindow.document.write(`
+                    <div class="item">
+                        <div class="week">第 ${a.week} 週</div>
+                        <div class="book">${bkHtml}</div>
+                    </div>
+                `);
+            });
+            printWindow.document.write(`</div></div>`);
+        });
+
+        printWindow.document.write(`</div></body></html>`);
+        printWindow.document.close();
+        printWindow.focus();
+        setTimeout(() => {
+            printWindow.print();
+            printWindow.close();
+        }, 300);
     };
 
     // =============== 模組 3: 每週排程與行事曆 ===============
