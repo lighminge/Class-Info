@@ -523,7 +523,7 @@
             <div id="auto-action-buttons" class="hidden-view flex flex-wrap gap-2 items-center xl:justify-end">
                <div class="flex items-center bg-yellow-900/40 rounded-lg p-1 border border-yellow-500/50 shadow-inner">
                  <span class="text-[11px] ml-2 mr-1 text-yellow-100">套用第</span>
-                 <select id="apply-week-select" class="chalk-input text-black bg-white text-[11px] py-0.5 px-1.5 rounded w-14 text-center font-bold"></select>
+                 <select id="apply-week-select" class="chalk-input text-black bg-white text-[11px] py-0.5 px-1.5 rounded w-14 text-center font-bold" onchange="renderSelectedAutoArrangeWeek()"></select>
                  <span class="text-[11px] ml-1 mr-2 text-yellow-100">週</span>
                  <button onclick="applyAutoArrangeToBooks()" class="text-[11px] bg-yellow-600 hover:bg-yellow-500 text-white px-2.5 py-1 rounded shadow transition-colors font-bold whitespace-nowrap border border-yellow-400">套用至清單</button>
                </div>
@@ -1362,7 +1362,7 @@
             const radAttend = document.querySelector(`input[name="att_${s.id}"][value="attend"]`);
             const radLeave = document.querySelector(`input[name="att_${s.id}"][value="leave"]`);
             if(radAttend) radAttend.checked = (status === 'attend');
-            if(radLeave) checked = (status === 'leave');
+            if(radLeave) radLeave.checked = (status === 'leave');
             
             if(status === 'attend') presentCount++;
             if(status === 'leave') {
@@ -2275,36 +2275,59 @@
             return;
         }
 
-        const weeks = window.currentAutoArrangement.weeks;
-        let html = '';
-        let weekOptions = '';
-
-        window.currentAutoArrangement.weeklyArrangements.forEach((weekObj) => {
-            const w = weekObj.weekIndex;
-            const weekData = weekObj.items;
-            weekOptions += `<option value="${w+1}">${w+1}</option>`;
-            html += `
-              <div class="border-2 border-white/30 p-4 rounded-lg bg-black/10 print-break-inside">
-                <h3 class="text-lg font-bold mb-3 text-yellow-300 border-b border-dashed border-white/30 pb-2">第 ${w + 1} 週</h3>
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 text-sm">
-            `;
-            weekData.forEach(item => {
-                const student = item.student;
-                const bk = item.book;
-                html += `
-                  <div class="bg-white/5 p-2 rounded flex flex-col border border-white/10">
-                    <span class="font-bold text-green-200">${student?.seatNo || '-'}號 ${student?.name || '-'}</span>
-                    <span class="truncate">📖 <span class="text-yellow-100">[${bk?.bookNo || '-'}]</span> ${bk?.title || '無書可借'}</span>
-                  </div>
-                `;
-            });
-            html += `</div></div>`;
-        });
-
-        if (resultsEl) resultsEl.innerHTML = html;
-        if (actionBtns) actionBtns.classList.remove('hidden-view'); // 顯示套用與列印按鈕區塊
         const applySelect = document.getElementById('apply-week-select');
-        if (applySelect) applySelect.innerHTML = weekOptions;
+        if (applySelect) {
+            let weekOptions = '';
+            window.currentAutoArrangement.weeklyArrangements.forEach((weekObj) => {
+                const w = weekObj.weekIndex;
+                weekOptions += `<option value="${w+1}">${w+1}</option>`;
+            });
+            // 保留目前所選的週次，若無則預設為第一週
+            const prevVal = applySelect.value;
+            applySelect.innerHTML = weekOptions;
+            if (prevVal && applySelect.querySelector(`option[value="${prevVal}"]`)) {
+                applySelect.value = prevVal;
+            } else {
+                applySelect.value = "1";
+            }
+        }
+        
+        if (actionBtns) actionBtns.classList.remove('hidden-view'); // 顯示套用與列印按鈕區塊
+        window.renderSelectedAutoArrangeWeek(); // 只渲染選取到的那一週
+    };
+
+    window.renderSelectedAutoArrangeWeek = () => {
+        const resultsEl = document.getElementById('auto-arrange-results');
+        const applySelect = document.getElementById('apply-week-select');
+        if (!resultsEl || !applySelect || !window.currentAutoArrangement) return;
+
+        const selectedWeek = parseInt(applySelect.value);
+        if (isNaN(selectedWeek)) return;
+
+        const weekObj = window.currentAutoArrangement.weeklyArrangements.find(w => w.weekIndex === selectedWeek - 1);
+        if (!weekObj) return;
+
+        const w = weekObj.weekIndex;
+        const weekData = weekObj.items;
+
+        let html = `
+          <div class="border-2 border-white/30 p-4 rounded-lg bg-black/10 print-break-inside">
+            <h3 class="text-lg font-bold mb-3 text-yellow-300 border-b border-dashed border-white/30 pb-2">第 ${w + 1} 週</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 text-sm">
+        `;
+        weekData.forEach(item => {
+            const student = item.student;
+            const bk = item.book;
+            html += `
+              <div class="bg-white/5 p-2 rounded flex flex-col border border-white/10">
+                <span class="font-bold text-green-200">${student?.seatNo || '-'}號 ${student?.name || '-'}</span>
+                <span class="break-words leading-snug mt-1">📖 <span class="text-yellow-100">[${bk?.bookNo || '-'}]</span> ${bk?.title || '無書可借'}</span>
+              </div>
+            `;
+        });
+        html += `</div></div>`;
+        
+        resultsEl.innerHTML = html;
     };
 
     window.generateAutoArrange = async () => {
@@ -2433,7 +2456,7 @@
     };
 
     window.printAutoArrange = () => {
-        const resultsHtml = document.getElementById('auto-arrange-results').innerHTML;
+        if (!window.currentAutoArrangement || !window.currentAutoArrangement.weeklyArrangements) return;
         const year = schSettings.academicYear;
         const sem = schSettings.semester;
         
@@ -2464,25 +2487,19 @@
                 <div id="content">
         `);
         
-        // 將系統深色背景的 HTML 轉換為適合列印的乾淨格式
-        const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = resultsHtml;
-        const weeks = tempDiv.querySelectorAll('.p-4.rounded-lg');
-        
-        weeks.forEach(w => {
-            const weekTitle = w.querySelector('h3').innerText;
-            const items = w.querySelectorAll('.p-2.rounded');
-            
+        window.currentAutoArrangement.weeklyArrangements.forEach(wObj => {
             printWindow.document.write(`<div class="week-container">`);
-            printWindow.document.write(`<div class="week-title">${weekTitle}</div>`);
+            printWindow.document.write(`<div class="week-title">第 ${wObj.weekIndex + 1} 週</div>`);
             printWindow.document.write(`<div class="grid">`);
             
-            items.forEach(item => {
-                const student = item.querySelector('.text-green-200').innerText;
-                const bookHTML = item.querySelector('.truncate').innerHTML.replace('📖', '').replace('text-yellow-100', 'book-no');
+            wObj.items.forEach(item => {
+                const studentStr = `${item.student?.seatNo || '-'}號 ${item.student?.name || '-'}`;
+                const bk = item.book;
+                const bookHTML = bk ? `<span class="book-no">[${bk.bookNo || '-'}]</span> ${bk.title}` : '無書可借';
+                
                 printWindow.document.write(`
                     <div class="item">
-                        <div class="student">${student}</div>
+                        <div class="student">${studentStr}</div>
                         <div class="book">${bookHTML}</div>
                     </div>
                 `);
