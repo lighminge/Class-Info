@@ -495,6 +495,14 @@
             <input type="number" id="auto-weeks" min="1" value="1" class="chalk-input w-full">
           </div>
           <div class="mb-4">
+            <label class="block mb-2">設定分配方式：</label>
+            <select id="auto-method" class="chalk-input w-full text-black bg-white font-bold">
+              <option value="sequential">依書籍編號順序輪替</option>
+              <option value="random">隨機打亂書單後輪替</option>
+              <option value="reverse">依書籍編號反向輪替</option>
+            </select>
+          </div>
+          <div class="mb-4">
             <div class="flex justify-between items-center mb-2 gap-2 flex-wrap">
               <label class="text-yellow-200">2. 勾選欲租借的書</label>
               <div class="flex items-center gap-1.5">
@@ -2354,11 +2362,23 @@
       }
 
       const weeks = parseInt(document.getElementById('auto-weeks').value) || 1;
+      const method = document.getElementById('auto-method').value;
       const selectedIds = Array.from(selectedAutoBookIds);
-      // 依照書籍編號進行自然排序後再安排分配
-      const targetBooks = [...booksData]
+      
+      // 依照書籍編號進行自然排序
+      let targetBooks = [...booksData]
           .filter(b => selectedIds.includes(b.id))
           .sort((a,b) => String(a.bookNo || '').localeCompare(String(b.bookNo || ''), undefined, {numeric: true, sensitivity: 'base'}));
+          
+      // 根據選擇的分配方式調整書單順序
+      if (method === 'reverse') {
+          targetBooks.reverse();
+      } else if (method === 'random') {
+          for (let i = targetBooks.length - 1; i > 0; i--) {
+              const j = Math.floor(Math.random() * (i + 1));
+              [targetBooks[i], targetBooks[j]] = [targetBooks[j], targetBooks[i]];
+          }
+      }
       
       // 改用 Firebase 支援的 Array of Objects 結構 (避免 nested arrays 錯誤)
       let arrangementData = { weeks: weeks, weeklyArrangements: [] };
