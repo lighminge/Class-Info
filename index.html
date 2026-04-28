@@ -771,6 +771,7 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
     import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
     import { getFirestore, collection, onSnapshot, doc, setDoc, addDoc, deleteDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app-check.js";
 
     // 系統變數 (強制綁定您的專案資料庫)
     const firebaseConfig = {
@@ -784,6 +785,23 @@
     };
 
     const app = initializeApp(firebaseConfig);
+    
+    // 🛡️ reCAPTCHA v3 (Firebase App Check) 安全設定 🛡️
+    // 請在這裡填入您從 Firebase App Check 取得的 reCAPTCHA v3 Site Key
+    const recaptchaSiteKey = "6Lemz84sAAAAANdzXXLXB5IDIikNbII4BQDQebCY"; 
+    
+    if (recaptchaSiteKey && recaptchaSiteKey.trim() !== "") {
+        try {
+            initializeAppCheck(app, {
+                provider: new ReCaptchaV3Provider(recaptchaSiteKey),
+                isTokenAutoRefreshEnabled: true // 自動重新整理驗證權杖
+            });
+            console.log("🛡️ reCAPTCHA App Check 已啟動");
+        } catch (e) {
+            console.error("reCAPTCHA 啟動失敗:", e);
+        }
+    }
+
     const auth = getAuth(app);
     const db = getFirestore(app);
     
