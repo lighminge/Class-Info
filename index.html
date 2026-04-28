@@ -100,7 +100,7 @@
   </div>
 
   <!-- 【左側浮動工具】點名簿 Drawer -->
-  <div id="attendance-drawer" class="fixed left-0 top-[10%] bottom-10 w-80 bg-[#1e442d] border-r-4 border-y-4 border-dashed border-white/50 rounded-r-2xl transform -translate-x-full transition-transform z-[60] flex flex-col shadow-[15px_0_30px_rgba(0,0,0,0.5)]">
+  <div id="attendance-drawer" class="fixed left-0 top-[10%] bottom-10 w-80 bg-[#1e442d] border-r-4 border-y-4 border-dashed border-white/50 rounded-r-2xl transform -translate-x-full transition-transform flex flex-col shadow-[15px_0_30px_rgba(0,0,0,0.5)] z-[60]" style="z-index: 60;">
     <button onclick="toggleAttendance()" class="absolute -right-12 top-10 bg-yellow-500 hover:bg-yellow-400 text-black p-2 rounded-r-xl shadow-lg font-black tracking-widest border-y-2 border-r-2 border-white/50 transition-colors" style="writing-mode: vertical-rl; text-orientation: upright; font-size: 1.1rem; padding-block: 1rem;">
       點名簿
     </button>
@@ -135,6 +135,46 @@
     </div>
   </div>
 
+  <!-- 【左側浮動工具】老師請假 Drawer -->
+  <div id="leave-drawer" class="fixed left-0 top-[10%] bottom-10 w-80 bg-[#4a2b5b] border-r-4 border-y-4 border-dashed border-white/50 rounded-r-2xl transform -translate-x-full transition-transform flex flex-col shadow-[15px_0_30px_rgba(0,0,0,0.5)] z-[60]" style="z-index: 60;">
+    <button onclick="toggleLeaveDrawer()" class="absolute -right-12 top-32 bg-purple-500 hover:bg-purple-400 text-white p-2 rounded-r-xl shadow-lg font-black tracking-widest border-y-2 border-r-2 border-white/50 transition-colors" style="writing-mode: vertical-rl; text-orientation: upright; font-size: 1.1rem; padding-block: 1rem;">
+      老師請假
+    </button>
+    <div class="p-5 flex-1 flex flex-col h-full overflow-y-auto custom-scrollbar">
+      <h2 class="text-xl font-bold text-yellow-300 border-b-2 border-dashed border-white/30 pb-3 mb-4 flex items-center gap-2">
+        <i data-lucide="user-minus"></i> 老師請假註記
+      </h2>
+      <div class="mb-4">
+        <label class="text-sm font-bold text-yellow-100 mb-1 block">選擇請假老師：</label>
+        <select id="leave-teacher-select" class="chalk-input text-black bg-white w-full rounded" onchange="onLeaveTeacherChange()">
+          <!-- 動態載入老師選項 -->
+        </select>
+        <div class="text-[11px] text-white/70 mt-2 flex gap-3 bg-black/20 p-1.5 rounded justify-center border border-white/10">
+          <span class="flex items-center gap-1"><div id="drawer-legend-color-lead" class="w-3 h-3 rounded-sm shadow border border-white/30"></div> <span id="drawer-legend-name-lead">--</span></span>
+          <span class="flex items-center gap-1"><div id="drawer-legend-color-co" class="w-3 h-3 rounded-sm shadow border border-white/30"></div> <span id="drawer-legend-name-co">--</span></span>
+        </div>
+      </div>
+      
+      <div class="bg-black/30 p-3 rounded-lg border border-white/20 shadow-inner flex flex-col min-h-[250px]">
+        <div class="flex justify-between items-center mb-3 border-b border-white/10 pb-2">
+          <button onclick="navLeaveCal(-1)" class="chalk-btn py-1 px-2 border-white/30 text-white/70 hover:bg-white/10 hover:text-white"><i data-lucide="chevron-left" class="w-4 h-4"></i></button>
+          <div id="leave-cal-title" class="font-bold text-base text-yellow-100"></div>
+          <button onclick="navLeaveCal(1)" class="chalk-btn py-1 px-2 border-white/30 text-white/70 hover:bg-white/10 hover:text-white"><i data-lucide="chevron-right" class="w-4 h-4"></i></button>
+        </div>
+        <div class="grid grid-cols-7 gap-1 text-center text-xs mb-2 text-white/60 font-bold">
+          <div>日</div><div>一</div><div>二</div><div>三</div><div>四</div><div>五</div><div>六</div>
+        </div>
+        <div id="leave-cal-grid" class="grid grid-cols-7 gap-1.5 text-center text-sm">
+          <!-- Calendar days -->
+        </div>
+      </div>
+
+      <button id="btn-save-leaves" onclick="saveTeacherLeaves()" class="chalk-btn bg-purple-600/80 hover:bg-purple-500 w-full mt-4 justify-center shadow-lg border-purple-400 shrink-0">
+        <i data-lucide="save" class="w-4 h-4"></i> 確定並儲存註記
+      </button>
+    </div>
+  </div>
+
   <!-- 標頭 Header -->
   <header class="flex flex-col md:flex-row justify-between items-center mb-8 border-b-4 border-white/50 pb-4 border-dashed">
     <div class="flex items-center gap-3 cursor-pointer" onclick="navigate('home')">
@@ -145,9 +185,10 @@
     <div class="flex items-center gap-6 mt-4 md:mt-0">
       <!-- 天氣與日曆 -->
       <div class="flex items-center gap-4 bg-white/10 p-3 rounded-xl border border-white/30 backdrop-blur-sm">
-        <div class="flex flex-col items-center justify-center border-2 border-white rounded bg-red-900 overflow-hidden shadow-lg w-16 h-16">
+        <div class="flex flex-col items-center justify-center border-2 border-white rounded bg-red-900 overflow-hidden shadow-lg w-16 h-20">
           <div id="header-month" class="bg-red-600 w-full text-center text-xs py-0.5 text-white font-bold border-b border-white">月</div>
-          <div id="header-date" class="bg-white w-full h-full flex items-center justify-center text-red-900 font-bold text-2xl">00</div>
+          <div id="header-date" class="bg-white w-full flex-1 flex items-center justify-center text-red-900 font-bold text-2xl">00</div>
+          <div id="header-day" class="bg-red-800 w-full text-center text-[10px] py-0.5 text-white font-bold border-t border-white">星期-</div>
         </div>
         <div class="flex flex-col items-center justify-center text-center w-16" title="臺中市即時天氣">
           <div id="weather-icon" class="text-3xl flex justify-center"><i data-lucide="sun" class="text-yellow-300 w-8 h-8"></i></div>
@@ -555,26 +596,44 @@
 
     <!-- 視圖 4: 行事曆與排程 -->
     <div id="view-schedule" class="flex flex-col gap-6 hidden-view max-w-[1600px] mx-auto w-full">
-      <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <!-- 迷你月曆 -->
         <div class="chalk-box lg:col-span-1 flex flex-col items-center">
-          <div class="w-full max-w-[250px]">
-            <div class="flex justify-between items-center mb-4">
-              <button onclick="navMiniCal(-1)" class="hover:text-yellow-300"><i data-lucide="chevron-left"></i></button>
-              <div id="mini-cal-title" class="font-bold"></div>
-              <button onclick="navMiniCal(1)" class="hover:text-yellow-300"><i data-lucide="chevron-right"></i></button>
+          <div class="w-full">
+            <div class="flex justify-between items-center mb-3">
+              <button onclick="navMiniCal(-1)" class="hover:text-yellow-300 bg-white/10 p-1.5 rounded-full transition-colors"><i data-lucide="chevron-left" class="w-5 h-5"></i></button>
+              <div id="mini-cal-title" class="font-bold text-lg tracking-wider"></div>
+              <button onclick="navMiniCal(1)" class="hover:text-yellow-300 bg-white/10 p-1.5 rounded-full transition-colors"><i data-lucide="chevron-right" class="w-5 h-5"></i></button>
             </div>
-            <div class="grid grid-cols-7 gap-1 text-center text-sm mb-2 text-yellow-100">
+            <div class="grid grid-cols-7 gap-1 text-center text-sm mb-1 text-yellow-100 border-b border-white/20 pb-1">
               <div>日</div><div>一</div><div>二</div><div>三</div><div>四</div><div>五</div><div>六</div>
             </div>
-            <div id="mini-cal-grid" class="grid grid-cols-7 gap-1 text-center text-sm">
+            <div id="mini-cal-grid" class="grid grid-cols-7 gap-1 text-center text-sm mt-1">
               <!-- 月曆天數 -->
+            </div>
+            <!-- 老師請假圖例 -->
+            <div class="mt-4 text-xs flex flex-col gap-1.5 text-white/80 bg-black/20 p-3 rounded-xl w-full border border-white/10">
+              <div class="font-bold text-yellow-200 border-b border-white/10 pb-1.5 mb-1 flex items-center gap-2">
+                <i data-lucide="calendar-x" class="w-3.5 h-3.5"></i> 請假資訊
+              </div>
+              <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-2">
+                      <div id="cal-legend-color-lead" class="w-3 h-3 rounded shadow"></div>
+                      <span id="cal-legend-name-lead" class="font-bold tracking-wide text-white">-- (休)</span>
+                  </div>
+              </div>
+              <div class="flex items-center justify-between mt-0.5">
+                  <div class="flex items-center gap-2">
+                      <div id="cal-legend-color-co" class="w-3 h-3 rounded shadow"></div>
+                      <span id="cal-legend-name-co" class="font-bold tracking-wide text-white">-- (休)</span>
+                  </div>
+              </div>
             </div>
           </div>
         </div>
 
         <!-- 學期資訊與當週重點 -->
-        <div class="chalk-box lg:col-span-3 relative">
+        <div class="chalk-box lg:col-span-2 relative">
           <div class="absolute top-4 right-4 flex gap-3 z-10">
             <button onclick="openLinkSettings()" class="text-white/50 hover:text-yellow-300 transition-colors" title="行事曆關聯設定">
               <i data-lucide="link" class="w-5 h-5"></i>
@@ -583,20 +642,20 @@
               <i data-lucide="users" class="w-5 h-5"></i>
             </button>
           </div>
-          <div class="flex flex-col h-full justify-between">
+          <div class="flex flex-col h-full gap-3">
             <div>
               <h2 id="sch-header-title" class="text-2xl font-bold mb-2 text-yellow-300">學年度 - 第 1 週</h2>
-              <div class="flex gap-4 text-lg mb-4">
-                <span id="sch-lead-teacher" class="bg-red-500/30 px-3 py-1 rounded-full border border-red-300">👑 主教：--</span>
-                <span id="sch-co-teacher" class="bg-blue-500/30 px-3 py-1 rounded-full border border-blue-300">🤝 協同：--</span>
+              <div class="flex flex-col gap-2 text-lg">
+                <span id="sch-lead-teacher" class="bg-red-500/30 px-3 py-1 rounded-full border border-red-300 w-fit">👑 主教：--</span>
+                <span id="sch-co-teacher" class="bg-blue-500/30 px-3 py-1 rounded-full border border-blue-300 w-fit">🤝 協同：--</span>
               </div>
             </div>
-            <div class="bg-white/10 p-3 rounded-lg border border-dashed border-white/50 relative">
+            <div class="bg-white/10 p-3 rounded-lg border border-dashed border-white/50 relative flex-1 flex flex-col">
               <button onclick="navigate('annual')" class="absolute top-2 right-2 text-xs bg-white/20 hover:bg-white/40 px-2 py-1 rounded transition-colors text-white z-10">
                 前往「年度行事曆」編輯
               </button>
-              <h3 class="font-bold text-green-200 mb-1">📝 本週學校重點事項：</h3>
-              <textarea id="sch-weekly-event" readonly class="w-full bg-transparent outline-none text-white placeholder-white/40 resize-none cursor-default font-bold" rows="2" placeholder="尚無重點事項 (請至首頁「學校年度行事曆」設定)"></textarea>
+              <h3 class="font-bold text-green-200 mb-2">📝 本週學校重點事項：</h3>
+              <textarea id="sch-weekly-event" readonly class="w-full h-full flex-1 bg-transparent outline-none text-white placeholder-white/40 resize-none cursor-default font-bold min-h-[80px]" placeholder="尚無重點事項 (請至首頁「學校年度行事曆」設定)"></textarea>
             </div>
           </div>
         </div>
@@ -746,6 +805,12 @@
     let attendanceData = []; 
     let indicatorsDb = []; 
     let schSettings = { academicYear: '114', semester: '下學期', leadTeacher: '大熊老師', coTeacher: '兔兔老師', firstWeekLead: '大熊老師', id: null };
+    
+    // 教師請假資料狀態
+    let teacherLeavesData = {}; 
+    let leaveCalDate = new Date();
+    let stagedLeaves = new Set();
+    let currentLeaveTeacher = "";
 
     window.hasUnsavedAnnualChanges = false;
     window.hasUnsavedScheduleChanges = false;
@@ -780,6 +845,46 @@
     
     // 儲存最新的自動安排結果 (供列印與套用使用)
     window.currentAutoArrangement = null;
+
+    // 取得教師色彩主題設定 (動態判定文文老師)
+    window.getTeacherThemes = () => {
+        const leadName = schSettings.leadTeacher || '教師 A';
+        const coName = schSettings.coTeacher || '教師 B';
+        
+        let leadTheme = 'rose';
+        let coTheme = 'blue';
+        
+        // 只要名字包含文文，自動套用藍色版型
+        if (leadName.includes('文文')) {
+            leadTheme = 'blue';
+            coTheme = 'rose';
+        } else if (coName.includes('文文')) {
+            leadTheme = 'rose';
+            coTheme = 'blue';
+        }
+        
+        const getClasses = (theme) => {
+            if (theme === 'blue') return {
+                bg: 'bg-blue-500',
+                border: 'border-blue-300',
+                shadow: 'shadow-[0_0_10px_rgba(59,130,246,0.6)]',
+                dot: 'bg-blue-300'
+            };
+            return {
+                bg: 'bg-rose-500',
+                border: 'border-rose-300',
+                shadow: 'shadow-[0_0_10px_rgba(244,63,94,0.6)]',
+                dot: 'bg-pink-200'
+            };
+        };
+
+        return {
+            lead: getClasses(leadTheme),
+            co: getClasses(coTheme),
+            leadName,
+            coName
+        };
+    };
 
     // --- 文本比對演算法 (Bigram) 用於學習指標推薦 ---
     const getBigrams = (text) => {
@@ -816,10 +921,16 @@
                 return;
             }
 
-            // 針對資料庫進行比對與計分
-            let scored = indicatorsDb.filter(ind => ind.age23 && ind.age23.trim() !== '').map(ind => {
+            // 取得老師選擇的歲數
+            const ageSelect = document.getElementById(`sch-${type}-age-${index}`);
+            const ageKey = ageSelect ? ageSelect.value : 'age23';
+            const ageLabels = { 'age23': '2-3歲', 'age34': '3-4歲', 'age45': '4-5歲', 'age56': '5-6歲' };
+            const ageLabel = ageLabels[ageKey];
+
+            // 針對資料庫進行比對與計分 (動態抓取選定歲數的內容)
+            let scored = indicatorsDb.filter(ind => ind[ageKey] && ind[ageKey].trim() !== '').map(ind => {
                 // 將該指標的文字綜合起來做比對基底
-                const fullText = `${ind.domain} ${ind.ability} ${ind.aspect} ${ind.objective} ${ind.age23}`;
+                const fullText = `${ind.domain} ${ind.ability} ${ind.aspect} ${ind.objective} ${ind[ageKey]}`;
                 const indBigrams = getBigrams(fullText);
                 let intersection = 0;
                 refBigrams.forEach(bg => {
@@ -840,7 +951,7 @@
 
             let html = `
                 <div class="font-bold text-yellow-300 mb-1 border-b border-white/20 pb-1 flex justify-between items-center">
-                    <span>💡 推薦 2-3 歲學習指標</span>
+                    <span>💡 推薦 ${ageLabel} 學習指標</span>
                     <button onclick="document.getElementById('sch-${type}-suggestions-${index}').classList.add('hidden')" class="text-white/50 hover:text-white" title="關閉">
                         <i data-lucide="x" class="w-4 h-4"></i>
                     </button>
@@ -848,7 +959,7 @@
             `;
 
             topResults.forEach((res) => {
-                const ageText = res.item.age23.replace(/\n/g, ' ');
+                const ageText = res.item[ageKey].replace(/\n/g, ' ');
                 html += `
                     <div class="flex justify-between items-start gap-2 border-b border-white/10 pb-1.5 pt-1 last:border-0 hover:bg-white/5 p-1 rounded transition-colors">
                         <div class="flex-1 leading-snug">
@@ -856,7 +967,7 @@
                             <span class="font-bold text-white/90">${res.item.objective}</span><br>
                             <span class="text-orange-200 text-[11px]">${ageText}</span>
                         </div>
-                        <button onclick="copySuggestion('${res.item.id}')" class="text-[10px] bg-blue-600/80 hover:bg-blue-500 px-2 py-1 rounded text-white shrink-0 mt-0.5 border border-blue-400">複製</button>
+                        <button onclick="copySuggestion('${res.item.id}', '${ageKey}')" class="text-[10px] bg-blue-600/80 hover:bg-blue-500 px-2 py-1 rounded text-white shrink-0 mt-0.5 border border-blue-400">複製</button>
                     </div>
                 `;
             });
@@ -865,10 +976,10 @@
         }, 300);
     };
 
-    window.copySuggestion = (indId) => {
+    window.copySuggestion = (indId, ageKey = 'age23') => {
         const ind = indicatorsDb.find(i => i.id === indId);
         if(!ind) return;
-        const textToCopy = `【${ind.domain}】${ind.objective}：${ind.age23.replace(/\n/g, ' ')}`;
+        const textToCopy = ind[ageKey].replace(/\n/g, ' ');
         
         const ta = document.createElement('textarea');
         ta.value = textToCopy;
@@ -876,7 +987,7 @@
         ta.select();
         document.execCommand('copy');
         document.body.removeChild(ta);
-        window.showAlert('✅ 指標已複製！<br>您現在可以直接在省思區塊右鍵「貼上」。');
+        window.showAlert('✅ 指標已複製！<br>您現在可以直接在區塊右鍵「貼上」。');
     };
     // --- 文本比對演算法結束 ---
 
@@ -1044,8 +1155,188 @@
         lucide.createIcons();
       }).catch(e => console.log('Weather err'));
 
+    const headerDays = ['日', '一', '二', '三', '四', '五', '六'];
     document.getElementById('header-month').innerText = `${today.getMonth()+1}月`;
     document.getElementById('header-date').innerText = today.getDate();
+    const hDayEl = document.getElementById('header-day');
+    if (hDayEl) hDayEl.innerText = `星期${headerDays[today.getDay()]}`;
+
+    // ================= 老師請假系統 (浮動工具) =================
+    window.toggleLeaveDrawer = () => {
+        const drawer = document.getElementById('leave-drawer');
+        const attDrawer = document.getElementById('attendance-drawer');
+        drawer.classList.toggle('-translate-x-full');
+        
+        // Z-Index 自動蓋台機制
+        if (!drawer.classList.contains('-translate-x-full')) {
+            drawer.style.zIndex = '70'; // 把老師請假推到最上層
+            if (attDrawer) {
+                attDrawer.style.zIndex = '60'; // 把點名簿退到下層
+                if (!attDrawer.classList.contains('-translate-x-full')) {
+                    attDrawer.classList.add('-translate-x-full'); // 幫忙收起來
+                }
+            }
+            window.updateLeaveTeacherDropdown();
+            window.initStagedLeaves();
+            window.renderLeaveCalendar();
+        } else {
+            drawer.style.zIndex = '60'; // 關閉時重置
+        }
+    };
+    
+    window.toggleAttendance = () => {
+        const attDrawer = document.getElementById('attendance-drawer');
+        const leaveDrawer = document.getElementById('leave-drawer');
+        attDrawer.classList.toggle('-translate-x-full');
+        
+        // Z-Index 自動蓋台機制
+        if (!attDrawer.classList.contains('-translate-x-full')) {
+            attDrawer.style.zIndex = '70'; // 把點名簿推到最上層
+            if (leaveDrawer) {
+                leaveDrawer.style.zIndex = '60'; // 把老師請假退到下層
+                if (!leaveDrawer.classList.contains('-translate-x-full')) {
+                    leaveDrawer.classList.add('-translate-x-full'); // 幫忙收起來
+                }
+            }
+        } else {
+            attDrawer.style.zIndex = '60'; // 關閉時重置
+        }
+    };
+
+    window.updateLeaveTeacherDropdown = () => {
+        const select = document.getElementById('leave-teacher-select');
+        const themes = window.getTeacherThemes();
+        
+        const prev = select.value;
+        select.innerHTML = `<option value="${themes.leadName}">${themes.leadName}</option><option value="${themes.coName}">${themes.coName}</option>`;
+        if(prev === themes.leadName || prev === themes.coName) select.value = prev;
+        else select.value = themes.leadName;
+        currentLeaveTeacher = select.value;
+
+        // 同步更新圖例文字與顏色
+        const dNameLead = document.getElementById('drawer-legend-name-lead');
+        const dNameCo = document.getElementById('drawer-legend-name-co');
+        const dColLead = document.getElementById('drawer-legend-color-lead');
+        const dColCo = document.getElementById('drawer-legend-color-co');
+        
+        if (dNameLead) dNameLead.innerText = themes.leadName;
+        if (dNameCo) dNameCo.innerText = themes.coName;
+        if (dColLead) dColLead.className = `w-3 h-3 rounded-sm shadow border border-white/30 ${themes.lead.bg}`;
+        if (dColCo) dColCo.className = `w-3 h-3 rounded-sm shadow border border-white/30 ${themes.co.bg}`;
+    };
+
+    window.onLeaveTeacherChange = () => {
+        currentLeaveTeacher = document.getElementById('leave-teacher-select').value;
+        window.initStagedLeaves();
+        window.renderLeaveCalendar();
+    };
+
+    window.initStagedLeaves = () => {
+        stagedLeaves.clear();
+        for (const [date, teachers] of Object.entries(teacherLeavesData)) {
+            if (teachers.includes(currentLeaveTeacher)) {
+                stagedLeaves.add(date);
+            }
+        }
+    };
+
+    window.navLeaveCal = (dir) => {
+        leaveCalDate.setMonth(leaveCalDate.getMonth() + dir);
+        window.renderLeaveCalendar();
+    };
+
+    window.toggleLeaveDate = (dateStr) => {
+        if (stagedLeaves.has(dateStr)) {
+            stagedLeaves.delete(dateStr);
+        } else {
+            // 檢查是否另一位老師已經在同一天請假
+            const existingTeachers = teacherLeavesData[dateStr] || [];
+            const otherTeacher = existingTeachers.find(t => t !== currentLeaveTeacher);
+            
+            if (otherTeacher) {
+                window.showAlert(`⚠️ 衝突警告！\n\n【${otherTeacher}】已經在這天申請休假了。\n為了維持班級正常運作，兩位老師不能在同一天排休喔！`);
+                return; // 阻止加入請假清單
+            }
+            
+            stagedLeaves.add(dateStr);
+        }
+        window.renderLeaveCalendar();
+    };
+
+    window.saveTeacherLeaves = async () => {
+        if (!currentUser) return;
+        const btn = document.getElementById('btn-save-leaves');
+        const oldHtml = btn.innerHTML;
+        btn.innerHTML = '<i data-lucide="loader-2" class="animate-spin w-4 h-4 inline"></i> 儲存中...';
+        btn.disabled = true;
+        lucide.createIcons();
+
+        // 建立新的紀錄表
+        let newRecords = JSON.parse(JSON.stringify(teacherLeavesData));
+        
+        // 1. 先將該老師從所有舊日期中移除
+        for (const date in newRecords) {
+            newRecords[date] = newRecords[date].filter(t => t !== currentLeaveTeacher);
+            if (newRecords[date].length === 0) delete newRecords[date];
+        }
+
+        // 2. 將該老師加入這次確認勾選的日期中
+        stagedLeaves.forEach(date => {
+            if (!newRecords[date]) newRecords[date] = [];
+            newRecords[date].push(currentLeaveTeacher);
+        });
+
+        try {
+            await setDoc(getDoc("bear_teacherLeaves", "all_leaves"), { records: newRecords }, { merge: true });
+            window.showAlert('✅ 老師請假日期已成功儲存！\n行事曆上也會同步更新記號。');
+            teacherLeavesData = newRecords; // 樂觀更新
+            if(currentView === 'schedule') renderSchedule();
+        } catch(e) {
+            handleSnapshotError(e);
+        } finally {
+            btn.innerHTML = oldHtml;
+            btn.disabled = false;
+            lucide.createIcons();
+        }
+    };
+
+    window.renderLeaveCalendar = () => {
+        const year = leaveCalDate.getFullYear();
+        const month = leaveCalDate.getMonth();
+        document.getElementById('leave-cal-title').innerText = `${year}年 ${month + 1}月`;
+
+        const firstDay = new Date(year, month, 1).getDay();
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        const themes = window.getTeacherThemes();
+
+        let html = '';
+        for (let i = 0; i < firstDay; i++) html += `<div></div>`;
+
+        for (let d = 1; d <= daysInMonth; d++) {
+            const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+            const isSelected = stagedLeaves.has(dateStr);
+            const isT = d === today.getDate() && month === today.getMonth() && year === today.getFullYear();
+            
+            let bgClass = "bg-black/20 hover:bg-white/20";
+            let txtClass = isT ? "text-yellow-300 font-bold" : "text-white/80";
+
+            if (isSelected) {
+                // 套用動態老師色彩
+                if (currentLeaveTeacher === themes.leadName) {
+                    bgClass = `${themes.lead.bg} border ${themes.lead.border} ${themes.lead.shadow} text-white font-bold`;
+                } else {
+                    bgClass = `${themes.co.bg} border ${themes.co.border} ${themes.co.shadow} text-white font-bold`;
+                }
+                txtClass = "";
+            } else if (isT) {
+                 bgClass += " border border-yellow-500";
+            }
+
+            html += `<div onclick="toggleLeaveDate('${dateStr}')" class="cursor-pointer rounded p-1 text-center text-sm transition-colors ${bgClass} ${txtClass}">${d}</div>`;
+        }
+        document.getElementById('leave-cal-grid').innerHTML = html;
+    };
+
 
     // ================= 幼兒園學習指標系統 =================
     let indFilters = { domain: '', ability: '', aspect: '', objective: '', age: 'ALL' };
@@ -1261,12 +1552,6 @@
             saveBtn.disabled = false;
             lucide.createIcons();
         }
-    };
-
-
-    // ================= 點名簿系統 (浮動工具) =================
-    window.toggleAttendance = () => {
-        document.getElementById('attendance-drawer').classList.toggle('-translate-x-full');
     };
 
     window.navAttendanceDate = (dir) => {
@@ -2648,10 +2933,30 @@
                                 : (isOddWeek ? schSettings.coTeacher : schSettings.leadTeacher);
         currentCoLead = currentLead === schSettings.leadTeacher ? schSettings.coTeacher : schSettings.leadTeacher;
       }
+
+      // 取得當月份兩位老師的請假字串
+      const year = schCurrentDate.getFullYear();
+      const month = schCurrentDate.getMonth();
+      
+      const getLeaveStr = (teacherName) => {
+          if (!teacherName || teacherName === '未設定') return '';
+          let leaveDates = [];
+          for (const [dateStr, teachers] of Object.entries(teacherLeavesData)) {
+              const [y, m, d] = dateStr.split('-');
+              if (parseInt(y) === year && parseInt(m) === month + 1 && teachers.includes(teacherName)) {
+                  leaveDates.push(`${parseInt(m)}/${parseInt(d)}`);
+              }
+          }
+          if (leaveDates.length > 0) {
+              leaveDates.sort((a,b) => parseInt(a.split('/')[1]) - parseInt(b.split('/')[1]));
+              return `<span class="text-sm font-normal text-white/70 ml-2">(本月休: ${leaveDates.join('、')})</span>`;
+          }
+          return '';
+      };
       
       document.getElementById('sch-header-title').innerText = `${schSettings.academicYear} 學年度 ${schSettings.semester} - 第 ${viewingWeek} 週`;
-      document.getElementById('sch-lead-teacher').innerText = `👑 主教：${currentLead}`;
-      document.getElementById('sch-co-teacher').innerText = `🤝 協同：${currentCoLead}`;
+      document.getElementById('sch-lead-teacher').innerHTML = `👑 主教：${currentLead}${getLeaveStr(currentLead)}`;
+      document.getElementById('sch-co-teacher').innerHTML = `🤝 協同：${currentCoLead}${getLeaveStr(currentCoLead)}`;
       document.getElementById('sch-week-range').innerText = `${formatDate(weekDays[0])} ~ ${formatDate(weekDays[6])}`;
 
       const annualDocId = `${schSettings.academicYear}_${schSettings.semester}`;
@@ -2675,6 +2980,7 @@
           currentTheme = weekData.theme || '各班自訂';
         }
       }
+      
       const themeDisplay = document.getElementById('sch-weekly-theme-display');
       const themeText = document.getElementById('sch-theme-text');
       if (themeDisplay && themeText) {
@@ -2683,21 +2989,65 @@
         themeText.innerText = `⭐ 本週主題：${currentTheme} ⭐`;
       }
 
-      const year = schCurrentDate.getFullYear();
-      const month = schCurrentDate.getMonth();
       document.getElementById('mini-cal-title').innerText = `${year}年 ${month + 1}月`;
       
       const firstDay = new Date(year, month, 1).getDay();
       const daysInMonth = new Date(year, month + 1, 0).getDate();
       let mCalHtml = '';
-      for(let i=0; i<firstDay; i++) mCalHtml += `<div></div>`;
+      for(let i=0; i<firstDay; i++) mCalHtml += `<div class="w-full h-6 lg:h-7"></div>`;
+
+      // 更新月曆下方的圖例名稱與顏色
+      const themes = window.getTeacherThemes();
+      
+      const legendLeadName = document.getElementById('cal-legend-name-lead');
+      const legendCoName = document.getElementById('cal-legend-name-co');
+      const legendLeadCol = document.getElementById('cal-legend-color-lead');
+      const legendCoCol = document.getElementById('cal-legend-color-co');
+      
+      if(legendLeadName) legendLeadName.innerText = `${themes.leadName} (休)`;
+      if(legendCoName) legendCoName.innerText = `${themes.coName} (休)`;
+      if(legendLeadCol) legendLeadCol.className = `w-3 h-3 rounded shadow border ${themes.lead.border} ${themes.lead.bg}`;
+      if(legendCoCol) legendCoCol.className = `w-3 h-3 rounded shadow border ${themes.co.border} ${themes.co.bg}`;
+
       for(let d=1; d<=daysInMonth; d++) {
+        const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
         const isT = d === today.getDate() && month === today.getMonth() && year === today.getFullYear();
         const isS = d === schCurrentDate.getDate() && month === schCurrentDate.getMonth();
-        let cls = "p-1 cursor-pointer rounded-full w-8 h-8 flex items-center justify-center mx-auto hover:bg-white/20 ";
-        if(isT) cls += "bg-red-500 text-white font-bold ";
-        else if(isS) cls += "border border-yellow-300 text-yellow-300 ";
-        mCalHtml += `<div onclick="setSchDate(${year}, ${month}, ${d})" class="${cls}">${d}</div>`;
+        let cls = "cursor-pointer rounded w-full h-6 lg:h-7 flex flex-col items-center justify-center mx-auto hover:bg-white/20 relative transition-all duration-200 text-xs lg:text-sm ";
+
+        // 檢查請假資料標示明顯底色
+        const dayLeaves = teacherLeavesData[dateStr] || [];
+        const hasLeadLeave = dayLeaves.includes(themes.leadName);
+        const hasCoLeave = dayLeaves.includes(themes.coName);
+        
+        if (hasLeadLeave) {
+            cls += `${themes.lead.bg} text-white font-bold ${themes.lead.shadow} border ${themes.lead.border} `;
+        } else if (hasCoLeave) {
+            cls += `${themes.co.bg} text-white font-bold ${themes.co.shadow} border ${themes.co.border} `;
+        } else if (isT) {
+            cls += "bg-yellow-500 text-black font-black "; // 今天改為明顯的黃底黑字
+        } else if (isS) {
+            cls += "border-2 border-yellow-300 text-yellow-300 font-bold bg-yellow-500/10 "; // 選取日加粗邊框與背景
+        } else {
+            cls += "text-white ";
+        }
+
+        // 當天或選取日若剛好有請假，加上明顯外框強調
+        if (isT && (hasLeadLeave || hasCoLeave)) {
+             cls += "ring-2 ring-yellow-400 ring-offset-1 ring-offset-[#346b4b] ";
+        } else if (isS && (hasLeadLeave || hasCoLeave)) {
+             cls += "ring-1 ring-white ring-offset-1 ring-offset-[#346b4b] ";
+        }
+
+        let dotsHtml = '';
+        if (hasLeadLeave || hasCoLeave) {
+            dotsHtml = `<div class="absolute bottom-0.5 flex gap-1">`;
+            if (hasLeadLeave) dotsHtml += `<div class="w-1.5 h-1.5 rounded-full ${themes.lead.dot} shadow"></div>`;
+            if (hasCoLeave) dotsHtml += `<div class="w-1.5 h-1.5 rounded-full ${themes.co.dot} shadow"></div>`;
+            dotsHtml += `</div>`;
+        }
+
+        mCalHtml += `<div onclick="setSchDate(${year}, ${month}, ${d})" class="${cls}"><span class="${hasLeadLeave||hasCoLeave ? 'mb-1' : ''}">${d}</span>${dotsHtml}</div>`;
       }
       document.getElementById('mini-cal-grid').innerHTML = mCalHtml;
 
@@ -2732,31 +3082,55 @@
               </div>
 
               <div class="flex flex-col gap-1.5">
-                  <div class="flex justify-between items-end">
+                  <div class="flex justify-between items-end flex-wrap gap-1">
                       <label class="text-sm font-bold text-yellow-200">📌 教學活動</label>
-                      <button onclick="suggestIndicators(${index}, 'act')" class="text-[10px] bg-purple-600/80 hover:bg-purple-500 px-2 py-0.5 rounded text-white flex items-center gap-1 shadow border border-purple-400 transition-colors">
-                          <i data-lucide="sparkles" class="w-3 h-3"></i>推薦指標(2-3歲)
-                      </button>
+                      <div class="flex items-center gap-1">
+                          <select id="sch-act-age-${index}" class="text-[10px] bg-black/40 text-yellow-100 border border-white/20 rounded px-1 py-0.5 outline-none">
+                              <option value="age23">2-3歲</option>
+                              <option value="age34">3-4歲</option>
+                              <option value="age45">4-5歲</option>
+                              <option value="age56">5-6歲</option>
+                          </select>
+                          <button onclick="suggestIndicators(${index}, 'act')" class="text-[10px] bg-purple-600/80 hover:bg-purple-500 px-2 py-0.5 rounded text-white flex items-center gap-1 shadow border border-purple-400 transition-colors">
+                              <i data-lucide="sparkles" class="w-3 h-3"></i>推薦指標
+                          </button>
+                      </div>
                   </div>
                   <textarea id="sch-act-${index}" class="schedule-textarea min-h-[80px]" oninput="window.hasUnsavedScheduleChanges=true" onblur="saveDailyDoc('${dateStr}', ${index})" placeholder="請輸入教學活動..."></textarea>
                   <div id="sch-act-suggestions-${index}" class="hidden flex-col gap-1 text-xs text-yellow-100 bg-black/40 p-2.5 rounded shadow-inner border border-white/10 mt-0.5"></div>
               </div>
               <div class="flex flex-col gap-1.5">
-                  <div class="flex justify-between items-end">
+                  <div class="flex justify-between items-end flex-wrap gap-1">
                       <label class="text-sm font-bold text-yellow-200">💪 大肌肉運動</label>
-                      <button onclick="suggestIndicators(${index}, 'motor')" class="text-[10px] bg-purple-600/80 hover:bg-purple-500 px-2 py-0.5 rounded text-white flex items-center gap-1 shadow border border-purple-400 transition-colors">
-                          <i data-lucide="sparkles" class="w-3 h-3"></i>推薦指標(2-3歲)
-                      </button>
+                      <div class="flex items-center gap-1">
+                          <select id="sch-motor-age-${index}" class="text-[10px] bg-black/40 text-yellow-100 border border-white/20 rounded px-1 py-0.5 outline-none">
+                              <option value="age23">2-3歲</option>
+                              <option value="age34">3-4歲</option>
+                              <option value="age45">4-5歲</option>
+                              <option value="age56">5-6歲</option>
+                          </select>
+                          <button onclick="suggestIndicators(${index}, 'motor')" class="text-[10px] bg-purple-600/80 hover:bg-purple-500 px-2 py-0.5 rounded text-white flex items-center gap-1 shadow border border-purple-400 transition-colors">
+                              <i data-lucide="sparkles" class="w-3 h-3"></i>推薦指標
+                          </button>
+                      </div>
                   </div>
                   <textarea id="sch-motor-${index}" class="schedule-textarea min-h-[60px]" oninput="window.hasUnsavedScheduleChanges=true" onblur="saveDailyDoc('${dateStr}', ${index})" placeholder="請輸入大肌肉活動..."></textarea>
                   <div id="sch-motor-suggestions-${index}" class="hidden flex-col gap-1 text-xs text-yellow-100 bg-black/40 p-2.5 rounded shadow-inner border border-white/10 mt-0.5"></div>
               </div>
               <div class="flex flex-col gap-1.5">
-                  <div class="flex justify-between items-end">
+                  <div class="flex justify-between items-end flex-wrap gap-1">
                       <label class="text-sm font-bold text-yellow-200">💭 教學省思</label>
-                      <button onclick="suggestIndicators(${index}, 'ref')" class="text-[10px] bg-purple-600/80 hover:bg-purple-500 px-2 py-0.5 rounded text-white flex items-center gap-1 shadow border border-purple-400 transition-colors">
-                          <i data-lucide="sparkles" class="w-3 h-3"></i>推薦指標(2-3歲)
-                      </button>
+                      <div class="flex items-center gap-1">
+                          <select id="sch-ref-age-${index}" class="text-[10px] bg-black/40 text-yellow-100 border border-white/20 rounded px-1 py-0.5 outline-none">
+                              <option value="age23">2-3歲</option>
+                              <option value="age34">3-4歲</option>
+                              <option value="age45">4-5歲</option>
+                              <option value="age56">5-6歲</option>
+                          </select>
+                          <button onclick="suggestIndicators(${index}, 'ref')" class="text-[10px] bg-purple-600/80 hover:bg-purple-500 px-2 py-0.5 rounded text-white flex items-center gap-1 shadow border border-purple-400 transition-colors">
+                              <i data-lucide="sparkles" class="w-3 h-3"></i>推薦指標
+                          </button>
+                      </div>
                   </div>
                   <textarea id="sch-ref-${index}" class="schedule-textarea min-h-[60px]" oninput="window.hasUnsavedScheduleChanges=true" onblur="saveDailyDoc('${dateStr}', ${index})" placeholder="請輸入教學省思..."></textarea>
                   <div id="sch-ref-suggestions-${index}" class="hidden flex-col gap-1 text-xs text-yellow-100 bg-black/40 p-2.5 rounded shadow-inner border border-white/10 mt-0.5"></div>
@@ -3068,6 +3442,20 @@
     const startDataListeners = () => {
         if (window.listenersStarted) return;
         window.listenersStarted = true;
+
+        onSnapshot(getDoc("bear_teacherLeaves", "all_leaves"), snap => {
+            if (snap.exists()) {
+                teacherLeavesData = snap.data().records || {};
+            } else {
+                teacherLeavesData = {};
+            }
+            if(currentView === 'schedule') renderSchedule();
+            const leaveDrawer = document.getElementById('leave-drawer');
+            if(leaveDrawer && !leaveDrawer.classList.contains('-translate-x-full')) {
+                window.initStagedLeaves();
+                window.renderLeaveCalendar();
+            }
+        }, handleSnapshotError);
 
         onSnapshot(getCol("bear_students"), snap => {
             studentsData = snap.docs.map(d => ({id: d.id, ...d.data()}));
