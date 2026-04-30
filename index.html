@@ -312,9 +312,14 @@
         </div>
 
         <div class="chalk-box">
-          <h2 class="text-xl font-bold mb-4 flex items-center gap-2 text-white">
-            <i data-lucide="target" class="w-6 h-6 text-yellow-400"></i> 查詢結果 
-            <span class="text-sm font-normal bg-black/30 px-3 py-1 rounded-full">共 <span id="ind-results-count">0</span> 筆課程目標</span>
+          <h2 class="text-xl font-bold mb-4 flex items-center justify-between text-white border-b border-white/10 pb-3">
+            <div class="flex items-center gap-2">
+                <i data-lucide="target" class="w-6 h-6 text-yellow-400"></i> 查詢結果 
+                <span class="text-sm font-normal bg-black/30 px-3 py-1 rounded-full ml-2">共 <span id="ind-results-count">0</span> 筆課程目標</span>
+            </div>
+            <button onclick="exportIndicatorsToTxt()" class="chalk-btn bg-green-600/70 hover:bg-green-500 text-sm py-1.5 px-3 shadow-lg transition-colors border border-green-400">
+                <i data-lucide="download" class="w-4 h-4"></i> 匯出文字檔
+            </button>
           </h2>
           <div id="ind-results-container" class="space-y-6">
              <!-- 查詢結果動態產生 -->
@@ -771,7 +776,7 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
     import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
     import { getFirestore, collection, onSnapshot, doc, setDoc, addDoc, deleteDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-    import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app-check.js";
+    import { initializeAppCheck, ReCaptchaV3Provider, onTokenChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app-check.js";
 
     // 系統變數 (強制綁定您的專案資料庫)
     const firebaseConfig = {
@@ -787,19 +792,33 @@
     const app = initializeApp(firebaseConfig);
     
     // 🛡️ reCAPTCHA v3 (Firebase App Check) 安全設定 🛡️
-    // 請在這裡填入您從 Firebase App Check 取得的 reCAPTCHA v3 Site Key
     const recaptchaSiteKey = "6Lemz84sAAAAANdzXXLXB5IDIikNbII4BQDQebCY"; 
     
-    if (recaptchaSiteKey && recaptchaSiteKey.trim() !== "") {
+    // 💡 允許在開發環境 (localhost) 中測試 App Check
+    // self.FIREBASE_APPCHECK_DEBUG_TOKEN = true; // 如果在本地測試一直失敗，可以解除這行註解
+
+    // 為了確保在 Canvas 預覽環境中不會因為網域未加入白名單而一直報錯：
+    // 系統目前自動停用 App Check。當您正式部署到自己的網域時，可以將這段設定改為 true 來啟用。
+    const ENABLE_APP_CHECK = false; 
+
+    if (ENABLE_APP_CHECK && recaptchaSiteKey && recaptchaSiteKey.trim() !== "") {
         try {
-            initializeAppCheck(app, {
+            const appCheck = initializeAppCheck(app, {
                 provider: new ReCaptchaV3Provider(recaptchaSiteKey),
-                isTokenAutoRefreshEnabled: true // 自動重新整理驗證權杖
+                isTokenAutoRefreshEnabled: true
             });
-            console.log("🛡️ reCAPTCHA App Check 已啟動");
+            console.log("🛡️ reCAPTCHA App Check 模組已載入");
+
+            onTokenChanged(appCheck, (token) => {
+                console.log("✅ 成功取得 reCAPTCHA App Check 驗證憑證 (Token)！");
+            }, (error) => {
+                console.error("❌ 無法取得 reCAPTCHA 驗證憑證，請檢查網域白名單或金鑰：", error);
+            });
         } catch (e) {
             console.error("reCAPTCHA 啟動失敗:", e);
         }
+    } else {
+        console.warn("⚠️ 系統目前為「開發/預覽模式」，已暫停啟用 reCAPTCHA App Check 驗證以防不斷報錯。請於部署至正式環境時將 ENABLE_APP_CHECK 改為 true。");
     }
 
     const auth = getAuth(app);
@@ -844,6 +863,9 @@
     // 自動安排藏書分頁與勾選狀態
     let autoBookCurrentPage = 1;
     let selectedAutoBookIds = new Set();
+    
+    // 紀錄目前畫面篩選出的學習指標 (供匯出TXT使用)
+    window.currentFilteredIndicators = [];
 
     window.addEventListener('beforeunload', (e) => {
       if (window.hasUnsavedAnnualChanges || window.hasUnsavedScheduleChanges) {
@@ -945,10 +967,10 @@
             const ageLabels = { 'age23': '2-3歲', 'age34': '3-4歲', 'age45': '4-5歲', 'age56': '5-6歲' };
             const ageLabel = ageLabels[ageKey];
 
-            // 針對資料庫進行比對與計分 (動態抓取選定歲數的內容)
+            // 針對資料庫進行比對與計分 (動態抓取選定歲數的內容與專屬備註)
             let scored = indicatorsDb.filter(ind => ind[ageKey] && ind[ageKey].trim() !== '').map(ind => {
-                // 將該指標的文字綜合起來做比對基底
-                const fullText = `${ind.domain} ${ind.ability} ${ind.aspect} ${ind.objective} ${ind[ageKey]}`;
+                const remarksText = ind.remarks ? Object.values(ind.remarks).join(' ') : '';
+                const fullText = `${ind.domain} ${ind.ability} ${ind.aspect} ${ind.objective} ${ind[ageKey]} ${remarksText}`;
                 const indBigrams = getBigrams(fullText);
                 let intersection = 0;
                 refBigrams.forEach(bg => {
@@ -1008,6 +1030,43 @@
         window.showAlert('✅ 指標已複製！<br>您現在可以直接在區塊右鍵「貼上」。');
     };
     // --- 文本比對演算法結束 ---
+
+    // 匯出幼兒園學習指標為文字檔 (TXT) - 僅匯出純指標
+    window.exportIndicatorsToTxt = () => {
+        if (!window.currentFilteredIndicators || window.currentFilteredIndicators.length === 0) {
+            window.showAlert('⚠️ 目前沒有可匯出的查詢結果。');
+            return;
+        }
+
+        let linesToExport = new Set();
+        const ageFilter = document.getElementById('ind-filter-age').value;
+        const agesToCheck = ageFilter === 'ALL' ? ['age23', 'age34', 'age45', 'age56'] : [ageFilter];
+
+        window.currentFilteredIndicators.forEach((item) => {
+            agesToCheck.forEach(age => {
+                if (item[age]) {
+                    const lines = item[age].split(/\r?\n/).filter(l => l.trim() !== '');
+                    lines.forEach(l => linesToExport.add(l));
+                }
+            });
+        });
+
+        let txtContent = Array.from(linesToExport).join('\n');
+        
+        if (txtContent === '') {
+             window.showAlert('⚠️ 查詢結果中沒有指標內容。');
+             return;
+        }
+
+        const blob = new Blob([txtContent], { type: 'text/plain;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `幼兒園學習指標.txt`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
 
     // AI 金鑰同步與顯示邏輯
     window.updateApiKey = (val) => {
@@ -1426,6 +1485,8 @@
             return objA.localeCompare(objB, 'zh-TW', { numeric: true });
         });
 
+        // 儲存目前過濾結果供匯出使用
+        window.currentFilteredIndicators = results;
         document.getElementById('ind-results-count').innerText = results.length;
 
         const container = document.getElementById('ind-results-container');
@@ -1436,31 +1497,54 @@
 
         let resultsHtml = '';
         
-        // 2. 將每筆的學習指標獨立分開渲染，並加入獨立編輯與獨立複製功能
-        const renderAgeLines = (text, ageLabel, dbId, ageKey) => {
+        // 2. 將每筆的學習指標獨立分開渲染，並加入個別專屬備註
+        const renderAgeLines = (item, text, ageLabel, dbId, ageKey) => {
             if (!text || text.trim() === '') return '';
             const lines = text.split(/\r?\n/).filter(l => l.trim() !== '');
             if (lines.length === 0) return '';
             
-            let html = `<div class="flex flex-col gap-2 h-full">`;
+            let html = `<div class="flex flex-col gap-3 h-full">`;
             lines.forEach((line, lineIndex) => {
                 const uniqueId = `ind-text-${dbId}-${ageKey}-${lineIndex}`;
-                // 安全處理原始文字 (供取消時恢復使用)
                 const safeLine = line.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+                
+                // 讀取這條特定指標的專屬備註
+                const remarkKey = `${ageKey}_${lineIndex}`;
+                const remarkText = (item.remarks && item.remarks[remarkKey]) ? item.remarks[remarkKey] : '';
+                const safeRemark = remarkText.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 
                 html += `
-                <div class="bg-white/5 p-2 rounded border border-white/10 flex flex-col relative flex-1 transition-colors hover:bg-white/10" id="ind-container-${uniqueId}">
-                    <span class="text-xs text-orange-300 font-bold border-b border-white/10 pb-1 mb-2 text-center">${ageLabel}</span>
-                    <textarea id="${uniqueId}" data-original="${safeLine}" readonly class="text-sm text-white/90 bg-transparent resize-none outline-none w-full custom-scrollbar" rows="3">${line}</textarea>
+                <div class="bg-white/5 p-2.5 rounded border border-white/10 flex flex-col flex-1 transition-colors hover:bg-white/10 group/ind" id="ind-container-${uniqueId}">
                     
-                    <div class="absolute bottom-2 right-2 flex gap-1 transition-all opacity-0 hover:opacity-100 focus-within:opacity-100" id="ind-actions-${uniqueId}" onmouseenter="this.style.opacity='1'" onmouseleave="this.style.opacity=''">
-                        <button onclick="enableIndEdit('${dbId}', '${ageKey}', ${lineIndex}, '${uniqueId}')" class="text-[10px] bg-yellow-600/80 hover:bg-yellow-500 text-white px-2 py-1 rounded shadow border border-yellow-500"><i data-lucide="edit-3" class="w-3 h-3 inline-block align-middle mr-1"></i>修改</button>
-                        <button onclick="copyText('${uniqueId}')" class="text-[10px] bg-blue-500/80 hover:bg-blue-400 text-white px-2 py-1 rounded shadow border border-blue-300"><i data-lucide="copy" class="w-3 h-3 inline-block align-middle mr-1"></i>複製</button>
+                    <div class="flex justify-between items-center border-b border-white/10 pb-1 mb-2 min-h-[24px]">
+                        <span class="text-xs text-orange-300 font-bold">${ageLabel}</span>
+                        
+                        <div class="flex gap-1 opacity-0 group-hover/ind:opacity-100 transition-all focus-within:opacity-100" id="ind-actions-${uniqueId}">
+                            <button onclick="enableIndEdit('${dbId}', '${ageKey}', ${lineIndex}, '${uniqueId}')" class="text-[10px] bg-yellow-600/80 hover:bg-yellow-500 text-white px-2 py-1 rounded shadow border border-yellow-500"><i data-lucide="edit-3" class="w-3 h-3 inline-block align-middle mr-1"></i>修改</button>
+                            <button onclick="copyText('${uniqueId}')" class="text-[10px] bg-blue-500/80 hover:bg-blue-400 text-white px-2 py-1 rounded shadow border border-blue-300"><i data-lucide="copy" class="w-3 h-3 inline-block align-middle mr-1"></i>複製</button>
+                        </div>
+                        
+                        <div class="hidden-view flex gap-1" id="ind-save-actions-${uniqueId}">
+                            <button onclick="cancelIndEdit('${uniqueId}')" class="text-[10px] bg-gray-500/80 hover:bg-gray-400 text-white px-2 py-1 rounded shadow border border-gray-400">取消</button>
+                            <button onclick="saveIndInlineEdit('${dbId}', '${ageKey}', ${lineIndex}, '${uniqueId}')" class="text-[10px] bg-green-600/80 hover:bg-green-500 text-white px-2 py-1 rounded shadow border border-green-500"><i data-lucide="check" class="w-3 h-3 inline-block align-middle mr-1"></i>儲存</button>
+                        </div>
                     </div>
                     
-                    <div class="absolute bottom-2 right-2 flex gap-1 hidden-view" id="ind-save-actions-${uniqueId}">
-                        <button onclick="cancelIndEdit('${uniqueId}')" class="text-[10px] bg-gray-500/80 hover:bg-gray-400 text-white px-2 py-1 rounded shadow border border-gray-400">取消</button>
-                        <button onclick="saveIndInlineEdit('${dbId}', '${ageKey}', ${lineIndex}, '${uniqueId}')" class="text-[10px] bg-green-600/80 hover:bg-green-500 text-white px-2 py-1 rounded shadow border border-green-500"><i data-lucide="check" class="w-3 h-3 inline-block align-middle mr-1"></i>儲存</button>
+                    <textarea id="${uniqueId}" data-original="${safeLine}" readonly class="text-sm text-white/90 bg-transparent resize-none outline-none w-full custom-scrollbar flex-1 mb-2" rows="3">${line}</textarea>
+                    
+                    <!-- 此特定指標的專屬備註 -->
+                    <div class="mt-auto pt-2 border-t border-dashed border-white/20 flex flex-col group/remark">
+                        <div class="flex justify-between items-center mb-1 min-h-[20px]">
+                            <span class="text-[10px] text-blue-300 font-bold"><i data-lucide="message-square" class="w-3 h-3 inline"></i> 專屬備註 (供推薦比對)</span>
+                            <div class="opacity-0 group-hover/remark:opacity-100 transition-opacity focus-within:opacity-100" id="rem-actions-${uniqueId}">
+                                <button onclick="enableRemarkEdit('${uniqueId}')" class="text-[9px] bg-yellow-600/80 hover:bg-yellow-500 text-white px-1.5 py-0.5 rounded shadow">編輯備註</button>
+                            </div>
+                            <div class="hidden-view flex gap-1" id="rem-save-actions-${uniqueId}">
+                                <button onclick="cancelRemarkEdit('${uniqueId}')" class="text-[9px] bg-gray-500/80 hover:bg-gray-400 text-white px-1.5 py-0.5 rounded shadow">取消</button>
+                                <button onclick="saveRemarkEdit('${dbId}', '${remarkKey}', '${uniqueId}')" class="text-[9px] bg-green-600/80 hover:bg-green-500 text-white px-1.5 py-0.5 rounded shadow">儲存</button>
+                            </div>
+                        </div>
+                        <textarea id="rem-text-${uniqueId}" data-original="${safeRemark}" readonly class="text-xs text-yellow-100/60 bg-transparent resize-none outline-none w-full custom-scrollbar min-h-[30px]" placeholder="尚無備註...">${remarkText}</textarea>
                     </div>
                 </div>`;
             });
@@ -1473,16 +1557,16 @@
             let ageHtml = '';
             
             if (ageAge === 'ALL' || ageAge === 'age23') {
-                ageHtml += `<div>${renderAgeLines(item.age23, '2-3 歲', item.id, 'age23')}</div>`;
+                ageHtml += `<div>${renderAgeLines(item, item.age23, '2-3 歲', item.id, 'age23')}</div>`;
             }
             if (ageAge === 'ALL' || ageAge === 'age34') {
-                ageHtml += `<div>${renderAgeLines(item.age34, '3-4 歲', item.id, 'age34')}</div>`;
+                ageHtml += `<div>${renderAgeLines(item, item.age34, '3-4 歲', item.id, 'age34')}</div>`;
             }
             if (ageAge === 'ALL' || ageAge === 'age45') {
-                ageHtml += `<div>${renderAgeLines(item.age45, '4-5 歲', item.id, 'age45')}</div>`;
+                ageHtml += `<div>${renderAgeLines(item, item.age45, '4-5 歲', item.id, 'age45')}</div>`;
             }
             if (ageAge === 'ALL' || ageAge === 'age56') {
-                ageHtml += `<div>${renderAgeLines(item.age56, '5-6 歲', item.id, 'age56')}</div>`;
+                ageHtml += `<div>${renderAgeLines(item, item.age56, '5-6 歲', item.id, 'age56')}</div>`;
             }
 
             resultsHtml += `
@@ -1499,8 +1583,10 @@
                    <span class="text-lg font-bold text-yellow-300">${item.objective}</span>
                 </div>
               </div>
-              <div class="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                ${ageHtml}
+              <div class="p-4">
+                  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-2">
+                    ${ageHtml}
+                  </div>
               </div>
             </div>`;
         });
@@ -1563,6 +1649,56 @@
             await updateDoc(getDoc("bear_indicators", dbId), updateData);
             window.showAlert('✅ 學習指標修改成功！');
             // onSnapshot 會自動觸發 renderIndicators 更新畫面
+        } catch(e) {
+            console.error(e);
+            window.showAlert('❌ 修改失敗，請確認您的資料庫連線權限。');
+            saveBtn.innerHTML = oldHtml;
+            saveBtn.disabled = false;
+            lucide.createIcons();
+        }
+    };
+
+    // 備註說明的編輯、取消與儲存
+    window.enableRemarkEdit = (uniqueId) => {
+        const ta = document.getElementById(`rem-text-${uniqueId}`);
+        ta.removeAttribute('readonly');
+        ta.classList.remove('bg-transparent', 'text-yellow-100/60');
+        ta.classList.add('bg-black/50', 'border', 'border-yellow-400', 'p-1', 'rounded', 'text-yellow-200');
+        ta.focus();
+
+        document.getElementById(`rem-actions-${uniqueId}`).classList.add('hidden-view');
+        document.getElementById(`rem-save-actions-${uniqueId}`).classList.remove('hidden-view');
+    };
+
+    window.cancelRemarkEdit = (uniqueId) => {
+        const ta = document.getElementById(`rem-text-${uniqueId}`);
+        let orig = ta.getAttribute('data-original');
+        ta.value = orig || '';
+        ta.setAttribute('readonly', 'readonly');
+        ta.classList.add('bg-transparent', 'text-yellow-100/60');
+        ta.classList.remove('bg-black/50', 'border', 'border-yellow-400', 'p-1', 'rounded', 'text-yellow-200');
+
+        document.getElementById(`rem-actions-${uniqueId}`).classList.remove('hidden-view');
+        document.getElementById(`rem-save-actions-${uniqueId}`).classList.add('hidden-view');
+    };
+
+    window.saveRemarkEdit = async (dbId, remarkKey, uniqueId) => {
+        const ta = document.getElementById(`rem-text-${uniqueId}`);
+        const newVal = ta.value.trim();
+
+        const saveBtn = document.getElementById(`rem-save-actions-${uniqueId}`).querySelector('button:last-child');
+        const oldHtml = saveBtn.innerHTML;
+        saveBtn.innerHTML = '<i data-lucide="loader-2" class="w-3 h-3 animate-spin inline-block"></i>';
+        saveBtn.disabled = true;
+        lucide.createIcons();
+
+        try {
+            await setDoc(getDoc("bear_indicators", dbId), {
+                remarks: { [remarkKey]: newVal }
+            }, { merge: true });
+            
+            window.showAlert('✅ 專屬備註修改成功！');
+            // onSnapshot 將自動觸發重新渲染
         } catch(e) {
             console.error(e);
             window.showAlert('❌ 修改失敗，請確認您的資料庫連線權限。');
