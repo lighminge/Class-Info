@@ -851,7 +851,7 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
     import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
     import { getFirestore, collection, onSnapshot, doc, setDoc, addDoc, deleteDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-    import { initializeAppCheck, ReCaptchaV3Provider, onTokenChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app-check.js";
+    import { initializeAppCheck, ReCaptchaV3Provider, onTokenChanged, getToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app-check.js";
 
     // 系統變數 (強制綁定您的專案資料庫)
     const firebaseConfig = {
@@ -875,6 +875,7 @@
     // 為了確保在 Canvas 預覽環境中不會因為網域未加入白名單而一直報錯：
     // 系統目前自動停用 App Check。當您正式部署到自己的網域時，可以將這段設定改為 true 來啟用。
     const ENABLE_APP_CHECK = false; 
+    let globalAppCheck = null;
 
     if (ENABLE_APP_CHECK && recaptchaSiteKey && recaptchaSiteKey.trim() !== "") {
         // 判斷是否在動態預覽環境 (Canvas) 中
@@ -884,14 +885,14 @@
             console.warn("⚠️ 偵測到動態預覽環境。為避免 reCAPTCHA 網域白名單錯誤，已暫時停用 App Check 驗證。請將程式碼部署至正式網域後測試。");
         } else {
             try {
-                const appCheck = initializeAppCheck(app, {
+                globalAppCheck = initializeAppCheck(app, {
                     provider: new ReCaptchaV3Provider(recaptchaSiteKey),
                     isTokenAutoRefreshEnabled: true
                 });
                 console.log("🛡️ reCAPTCHA App Check 模組已載入");
 
                 // 加入這段來監聽 Token 狀態，真正確認是否有成功跟 Google/Firebase 換到憑證
-                onTokenChanged(appCheck, (token) => {
+                onTokenChanged(globalAppCheck, (token) => {
                     console.log("✅ 成功取得 reCAPTCHA App Check 驗證憑證 (Token)！");
                 }, (error) => {
                     console.warn("⚠️ AppCheck 驗證憑證取得失敗，若您並未在 Firebase 強制執行驗證，此訊息不影響系統功能：", error);
@@ -904,6 +905,36 @@
     } else {
         console.warn("⚠️ 系統目前為「開發/預覽模式」，已暫停啟用 reCAPTCHA App Check 驗證以防不斷報錯。請於部署至正式環境時將 ENABLE_APP_CHECK 改為 true。");
     }
+
+    // 🌟 新增：手動取得 reCAPTCHA Token 送值出去的通用函式
+    window.getRecaptchaToken = async () => {
+        if (!globalAppCheck) {
+            console.warn("App Check 尚未初始化或被停用，無法取得 Token。");
+            return null;
+        }
+        try {
+            // forceRefresh = false 表示優先使用快取的 Token，若過期才會重新向 Google 拿
+            const appCheckTokenResponse = await getToken(globalAppCheck, false);
+            return appCheckTokenResponse.token;
+        } catch (err) {
+            console.error("手動取得 reCAPTCHA Token 失敗：", err);
+            return null;
+        }
+    };
+    
+    /* * 💡 應用範例 (如果您需要打 API 給自己的後端)：
+     * * window.sendDataToMyBackend = async (data) => {
+     * const token = await window.getRecaptchaToken();
+     * await fetch('https://your-backend-api.com/endpoint', {
+     * method: 'POST',
+     * headers: {
+     * 'Content-Type': 'application/json',
+     * 'X-Firebase-AppCheck': token || '' // 將 Token 放在 Header 送出
+     * },
+     * body: JSON.stringify(data)
+     * });
+     * };
+     */
 
     const auth = getAuth(app);
     const db = getFirestore(app);
