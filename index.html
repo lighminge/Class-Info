@@ -1768,14 +1768,33 @@
 
         const saveBtn = document.getElementById(`ind-save-actions-${uniqueId}`).querySelector('button:last-child');
         const oldHtml = saveBtn.innerHTML;
-        saveBtn.innerHTML = '<i data-lucide="loader-2" class="w-3 h-3 animate-spin inline-block"></i>';
+        saveBtn.innerHTML = '<i data-lucide="loader-2" class="w-3 h-3 animate-spin inline-block mr-1"></i>儲存中';
         saveBtn.disabled = true;
         lucide.createIcons();
 
         try {
             await updateDoc(getDoc("bear_indicators", dbId), updateData);
-            window.showAlert('✅ 學習指標修改成功！');
-            // onSnapshot 會自動觸發 renderIndicators 更新畫面
+            
+            // 樂觀更新：先將新的值設定到 data-original 中，避免 cancel 時跳回舊值
+            ta.setAttribute('data-original', newVal);
+            
+            // 顯示成功狀態於按鈕上
+            saveBtn.innerHTML = '<i data-lucide="check" class="w-3 h-3 inline-block mr-1"></i>已儲存';
+            saveBtn.classList.remove('bg-green-600/80');
+            saveBtn.classList.add('bg-green-500');
+            lucide.createIcons();
+
+            // 稍微延遲後自動關閉編輯模式 (取代原本卡畫面的 showAlert)
+            setTimeout(() => {
+                cancelIndEdit(uniqueId);
+                // 恢復按鈕原本的狀態 (預防 onSnapshot 尚未重繪完成)
+                saveBtn.innerHTML = oldHtml;
+                saveBtn.disabled = false;
+                saveBtn.classList.add('bg-green-600/80');
+                saveBtn.classList.remove('bg-green-500');
+                lucide.createIcons();
+            }, 800);
+            
         } catch(e) {
             console.error(e);
             window.showAlert('❌ 修改失敗，請確認您的資料庫連線權限。');
@@ -1900,7 +1919,7 @@
 
         const saveBtn = document.getElementById(`rem-save-actions-${uniqueId}`).querySelector('button:last-child');
         const oldHtml = saveBtn.innerHTML;
-        saveBtn.innerHTML = '<i data-lucide="loader-2" class="w-3 h-3 animate-spin inline-block"></i>';
+        saveBtn.innerHTML = '<i data-lucide="loader-2" class="w-3 h-3 animate-spin inline-block mr-1"></i>儲存中';
         saveBtn.disabled = true;
         lucide.createIcons();
 
@@ -1909,8 +1928,23 @@
                 remarks: { [remarkKey]: newVal }
             }, { merge: true });
             
-            window.showAlert('✅ 專屬備註修改成功！');
-            // onSnapshot 將自動觸發重新渲染
+            // 樂觀更新
+            ta.setAttribute('data-original', newVal);
+            
+            saveBtn.innerHTML = '<i data-lucide="check" class="w-3 h-3 inline-block mr-1"></i>已儲存';
+            saveBtn.classList.remove('bg-green-600/80');
+            saveBtn.classList.add('bg-green-500');
+            lucide.createIcons();
+
+            setTimeout(() => {
+                cancelRemarkEdit(uniqueId);
+                saveBtn.innerHTML = oldHtml;
+                saveBtn.disabled = false;
+                saveBtn.classList.add('bg-green-600/80');
+                saveBtn.classList.remove('bg-green-500');
+                lucide.createIcons();
+            }, 800);
+            
         } catch(e) {
             console.error(e);
             window.showAlert('❌ 修改失敗，請確認您的資料庫連線權限。');
