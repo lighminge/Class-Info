@@ -778,21 +778,30 @@
           </div>
         </div>
         <div class="border-t border-white/20 pt-4 mt-4">
-          <label class="block text-sm font-bold text-yellow-200 mb-2 flex items-center gap-1"><i data-lucide="align-left" class="w-4 h-4"></i> 各歲段指標內容 <span class="text-white/60 font-normal text-xs ml-1">(若無請留白，支援多行輸入)</span></label>
+          <div class="flex flex-col md:flex-row md:justify-between md:items-end mb-2 gap-2">
+            <label class="block text-sm font-bold text-yellow-200 flex items-center gap-1"><i data-lucide="align-left" class="w-4 h-4"></i> 各歲段指標內容 <span class="text-white/60 font-normal text-xs ml-1">(若無請留白，支援多行輸入)</span></label>
+            <select id="add-ind-target-age" class="chalk-input text-black bg-white text-sm py-1 px-2 rounded font-bold" onchange="toggleAddIndAgeFields()">
+                <option value="ALL">顯示全部歲段</option>
+                <option value="age23">僅新增 2-3 歲</option>
+                <option value="age34">僅新增 3-4 歲</option>
+                <option value="age45">僅新增 4-5 歲</option>
+                <option value="age56">僅新增 5-6 歲</option>
+            </select>
+          </div>
           <div class="space-y-3">
-            <div>
+            <div id="add-ind-wrap-age23">
               <span class="text-xs text-orange-300 font-bold mb-1 block">2-3 歲</span>
               <textarea id="add-ind-age23" class="schedule-textarea min-h-[60px]" placeholder="輸入 2-3 歲指標內容..."></textarea>
             </div>
-            <div>
+            <div id="add-ind-wrap-age34">
               <span class="text-xs text-orange-300 font-bold mb-1 block">3-4 歲</span>
               <textarea id="add-ind-age34" class="schedule-textarea min-h-[60px]" placeholder="輸入 3-4 歲指標內容..."></textarea>
             </div>
-            <div>
+            <div id="add-ind-wrap-age45">
               <span class="text-xs text-orange-300 font-bold mb-1 block">4-5 歲</span>
               <textarea id="add-ind-age45" class="schedule-textarea min-h-[60px]" placeholder="輸入 4-5 歲指標內容..."></textarea>
             </div>
-            <div>
+            <div id="add-ind-wrap-age56">
               <span class="text-xs text-orange-300 font-bold mb-1 block">5-6 歲</span>
               <textarea id="add-ind-age56" class="schedule-textarea min-h-[60px]" placeholder="輸入 5-6 歲指標內容..."></textarea>
             </div>
@@ -1790,6 +1799,20 @@
         }
     };
 
+    window.toggleAddIndAgeFields = () => {
+        const val = document.getElementById('add-ind-target-age').value;
+        const ages = ['age23', 'age34', 'age45', 'age56'];
+        ages.forEach(age => {
+            const wrap = document.getElementById(`add-ind-wrap-${age}`);
+            if (!wrap) return;
+            if (val === 'ALL' || val === age) {
+                wrap.classList.remove('hidden');
+            } else {
+                wrap.classList.add('hidden');
+            }
+        });
+    };
+
     // 新增學習指標相關功能
     window.openAddIndModal = () => {
         document.getElementById('add-ind-domain').value = '';
@@ -1801,6 +1824,8 @@
         document.getElementById('add-ind-age45').value = '';
         document.getElementById('add-ind-age56').value = '';
         
+        document.getElementById('add-ind-target-age').value = 'ALL';
+        window.toggleAddIndAgeFields();
         window.updateAddIndDatalists(); // 初始化下拉選單
         
         document.getElementById('ind-add-modal').classList.remove('hidden-view');
@@ -1847,18 +1872,11 @@
             window.showAlert('⚠️ 請填寫完整的「領域、領域能力、學習面向、課程目標」！');
             return;
         }
-
-        const data = {
-            domain,
-            ability,
-            aspect,
-            objective,
-            age23: document.getElementById('add-ind-age23').value.trim(),
-            age34: document.getElementById('add-ind-age34').value.trim(),
-            age45: document.getElementById('add-ind-age45').value.trim(),
-            age56: document.getElementById('add-ind-age56').value.trim(),
-            remarks: {}
-        };
+        
+        const a23 = document.getElementById('add-ind-age23').value.trim();
+        const a34 = document.getElementById('add-ind-age34').value.trim();
+        const a45 = document.getElementById('add-ind-age45').value.trim();
+        const a56 = document.getElementById('add-ind-age56').value.trim();
 
         const btn = document.getElementById('btn-save-new-ind');
         const oldHtml = btn.innerHTML;
@@ -1867,13 +1885,44 @@
         lucide.createIcons();
 
         try {
-            await addDoc(getCol("bear_indicators"), data);
-            window.showAlert('✅ 學習指標新增成功！');
+            // 檢查是否已存在相同的課程目標
+            const existingInd = indicatorsDb.find(i => i.objective === objective);
+            
+            if (existingInd) {
+                // 如果已存在，則進行「合併/追加」而非產生重複指標
+                const updateData = {};
+                if (a23) updateData.age23 = existingInd.age23 ? existingInd.age23 + '\n' + a23 : a23;
+                if (a34) updateData.age34 = existingInd.age34 ? existingInd.age34 + '\n' + a34 : a34;
+                if (a45) updateData.age45 = existingInd.age45 ? existingInd.age45 + '\n' + a45 : a45;
+                if (a56) updateData.age56 = existingInd.age56 ? existingInd.age56 + '\n' + a56 : a56;
+                
+                if (Object.keys(updateData).length > 0) {
+                    await updateDoc(getDoc("bear_indicators", existingInd.id), updateData);
+                    window.showAlert('✅ 偵測到已有相同的課程目標，已將新的歲段內容合併追加成功！');
+                } else {
+                    window.showAlert('⚠️ 課程目標已存在，但您沒有輸入任何新的指標內容。');
+                }
+            } else {
+                // 儲存全新的指標
+                const data = {
+                    domain,
+                    ability,
+                    aspect,
+                    objective,
+                    age23: a23,
+                    age34: a34,
+                    age45: a45,
+                    age56: a56,
+                    remarks: {}
+                };
+                await addDoc(getCol("bear_indicators"), data);
+                window.showAlert('✅ 學習指標新增成功！');
+            }
+            
             window.closeAddIndModal();
-            // onSnapshot 會自動更新指標列表
         } catch (e) {
             console.error(e);
-            window.showAlert('❌ 新增失敗，請確認您的資料庫連線權限。');
+            window.showAlert('❌ 儲存失敗，請確認您的資料庫連線權限。');
         } finally {
             btn.innerHTML = oldHtml;
             btn.disabled = false;
