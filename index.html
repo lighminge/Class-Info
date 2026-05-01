@@ -872,9 +872,8 @@
     // 💡 允許在開發環境 (localhost) 中測試 App Check
     // self.FIREBASE_APPCHECK_DEBUG_TOKEN = true; // 如果在本地測試一直失敗，可以解除這行註解
 
-    // 為了確保在 Canvas 預覽環境中不會因為網域未加入白名單而一直報錯：
-    // 系統目前自動停用 App Check。當您正式部署到自己的網域時，可以將這段設定改為 true 來啟用。
-    const ENABLE_APP_CHECK = false; 
+    // 🚀 系統已啟用 App Check (準備部署至 GitHub Pages 等正式網域)
+    const ENABLE_APP_CHECK = true; 
     let globalAppCheck = null;
 
     if (ENABLE_APP_CHECK && recaptchaSiteKey && recaptchaSiteKey.trim() !== "") {
