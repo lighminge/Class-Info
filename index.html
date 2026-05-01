@@ -1608,6 +1608,7 @@
                         <div class="flex gap-1 opacity-0 group-hover/ind:opacity-100 transition-all focus-within:opacity-100" id="ind-actions-${uniqueId}">
                             <button onclick="enableIndEdit('${dbId}', '${ageKey}', ${lineIndex}, '${uniqueId}')" class="text-[10px] bg-yellow-600/80 hover:bg-yellow-500 text-white px-2 py-1 rounded shadow border border-yellow-500"><i data-lucide="edit-3" class="w-3 h-3 inline-block align-middle mr-1"></i>修改</button>
                             <button onclick="copyText('${uniqueId}')" class="text-[10px] bg-blue-500/80 hover:bg-blue-400 text-white px-2 py-1 rounded shadow border border-blue-300"><i data-lucide="copy" class="w-3 h-3 inline-block align-middle mr-1"></i>複製</button>
+                            <button onclick="deleteIndLine('${dbId}', '${ageKey}', ${lineIndex})" class="text-[10px] bg-red-600/80 hover:bg-red-500 text-white px-2 py-1 rounded shadow border border-red-500"><i data-lucide="trash-2" class="w-3 h-3 inline-block align-middle mr-1"></i>刪除</button>
                         </div>
                         
                         <div class="hidden-view flex gap-1" id="ind-save-actions-${uniqueId}">
@@ -1670,8 +1671,12 @@
                     <span class="text-white/50 text-xs">&gt;</span>
                     <span class="bg-green-600/60 text-white px-2 py-1 rounded text-xs font-bold tracking-wider">${item.aspect}</span>
                 </div>
-                <div class="w-full mt-2">
-                   <span class="text-lg font-bold text-yellow-300">${item.objective}</span>
+                <div class="w-full mt-2 flex justify-between items-center group/obj">
+                   <span class="text-lg font-bold text-yellow-300 break-all pr-2">${item.objective}</span>
+                   <div class="opacity-0 group-hover/obj:opacity-100 transition-opacity flex gap-2 shrink-0">
+                       <button onclick="editObjective('${item.id}')" class="text-[11px] bg-yellow-600/80 hover:bg-yellow-500 px-2 py-1 rounded text-white shadow border border-yellow-500"><i data-lucide="edit-3" class="w-3 h-3 inline align-middle mr-1"></i>修改</button>
+                       <button onclick="deleteObjective('${item.id}')" class="text-[11px] bg-red-600/80 hover:bg-red-500 px-2 py-1 rounded text-white shadow border border-red-500"><i data-lucide="trash-2" class="w-3 h-3 inline align-middle mr-1"></i>刪除</button>
+                   </div>
                 </div>
               </div>
               <div class="p-4">
@@ -1747,6 +1752,91 @@
             saveBtn.disabled = false;
             lucide.createIcons();
         }
+    };
+
+    // 刪除單筆學習指標 (特定歲段的單一條目)
+    window.deleteIndLine = (dbId, ageKey, lineIndex) => {
+        const item = indicatorsDb.find(i => i.id === dbId);
+        if(!item) return;
+
+        window.openConfirm('確定要刪除這筆學習指標嗎？', async () => {
+            let lines = (item[ageKey] || '').split(/\r?\n/).filter(l => l.trim() !== '');
+            lines.splice(lineIndex, 1);
+            
+            const newBlock = lines.join('\n');
+            const updateData = {};
+            updateData[ageKey] = newBlock;
+
+            // 自動將備註陣列往前推，保持對應關係
+            const newRemarks = { ...(item.remarks || {}) };
+            delete newRemarks[`${ageKey}_${lineIndex}`];
+            
+            let maxIdx = -1;
+            Object.keys(newRemarks).forEach(k => {
+                if (k.startsWith(`${ageKey}_`)) {
+                    const idx = parseInt(k.split('_')[1]);
+                    if (idx > maxIdx) maxIdx = idx;
+                }
+            });
+
+            for (let i = lineIndex + 1; i <= maxIdx; i++) {
+                const oldKey = `${ageKey}_${i}`;
+                const newKey = `${ageKey}_${i-1}`;
+                if (newRemarks[oldKey] !== undefined) {
+                    newRemarks[newKey] = newRemarks[oldKey];
+                    delete newRemarks[oldKey];
+                }
+            }
+            updateData.remarks = newRemarks;
+
+            try {
+                await updateDoc(getDoc("bear_indicators", dbId), updateData);
+                window.showAlert('✅ 學習指標刪除成功！');
+            } catch(e) {
+                console.error(e);
+                window.showAlert('❌ 刪除失敗，請確認您的資料庫連線權限。');
+            }
+        });
+    };
+
+    // 編輯整個課程目標
+    window.editObjective = (dbId) => {
+        const item = indicatorsDb.find(i => i.id === dbId);
+        if (!item) return;
+        window.openPrompt(`修改課程目標名稱：`, async (newVal) => {
+            if (!newVal || newVal.trim() === '' || newVal === item.objective) return;
+            try {
+                await updateDoc(getDoc("bear_indicators", dbId), { objective: newVal.trim() });
+                window.showAlert('✅ 課程目標修改成功！');
+            } catch(e) {
+                window.showAlert('❌ 修改失敗。');
+            }
+        }, item.objective);
+    };
+
+    // 刪除整個課程目標
+    window.deleteObjective = (dbId) => {
+        const item = indicatorsDb.find(i => i.id === dbId);
+        if (!item) return;
+        
+        const hasContent = (item.age23 && item.age23.trim() !== '') ||
+                           (item.age34 && item.age34.trim() !== '') ||
+                           (item.age45 && item.age45.trim() !== '') ||
+                           (item.age56 && item.age56.trim() !== '');
+
+        let msg = `確定要刪除整個課程目標「${item.objective}」嗎？`;
+        if (hasContent) {
+            msg = `⚠️ 警告！課程目標「${item.objective}」裡面**還包含學習指標資料**。\n刪除後裡面的所有歲段指標將會一併消失！\n\n確定要強制刪除嗎？`;
+        }
+
+        window.openConfirm(msg, async () => {
+            try {
+                await deleteDoc(getDoc("bear_indicators", dbId));
+                window.showAlert('✅ 課程目標已刪除！');
+            } catch(e) {
+                window.showAlert('❌ 刪除失敗。');
+            }
+        });
     };
 
     // 備註說明的編輯、取消與儲存
@@ -3279,9 +3369,9 @@
 
     // =============== 模組 3: 每週排程與行事曆 ===============
     
-    window.openPrompt = (title, callback) => {
+    window.openPrompt = (title, callback, defaultValue = '') => {
       document.getElementById('custom-prompt-title').innerText = title;
-      document.getElementById('custom-prompt-input').value = '';
+      document.getElementById('custom-prompt-input').value = defaultValue;
       document.getElementById('custom-prompt-modal').classList.remove('hidden-view');
       document.getElementById('custom-prompt-input').focus();
       promptCallback = callback;
