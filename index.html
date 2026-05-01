@@ -758,19 +758,23 @@
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label class="block text-sm font-bold text-green-100 mb-1">領域 <span class="text-red-400">*</span></label>
-            <input id="add-ind-domain" type="text" class="chalk-input w-full" placeholder="例如：身體動作">
+            <input id="add-ind-domain" type="text" list="dl-domain" class="chalk-input w-full" placeholder="例如：身體動作" oninput="updateAddIndDatalists()">
+            <datalist id="dl-domain"></datalist>
           </div>
           <div>
             <label class="block text-sm font-bold text-green-100 mb-1">領域能力 <span class="text-red-400">*</span></label>
-            <input id="add-ind-ability" type="text" class="chalk-input w-full" placeholder="例如：覺察與模仿">
+            <input id="add-ind-ability" type="text" list="dl-ability" class="chalk-input w-full" placeholder="例如：覺察與模仿" oninput="updateAddIndDatalists()">
+            <datalist id="dl-ability"></datalist>
           </div>
           <div>
             <label class="block text-sm font-bold text-green-100 mb-1">學習面向 <span class="text-red-400">*</span></label>
-            <input id="add-ind-aspect" type="text" class="chalk-input w-full" placeholder="例如：覺察與模仿">
+            <input id="add-ind-aspect" type="text" list="dl-aspect" class="chalk-input w-full" placeholder="例如：覺察與模仿" oninput="updateAddIndDatalists()">
+            <datalist id="dl-aspect"></datalist>
           </div>
           <div>
             <label class="block text-sm font-bold text-green-100 mb-1">課程目標 <span class="text-red-400">*</span></label>
-            <input id="add-ind-objective" type="text" class="chalk-input w-full" placeholder="例如：身-幼-1-1-1...">
+            <input id="add-ind-objective" type="text" list="dl-objective" class="chalk-input w-full" placeholder="例如：身-幼-1-1-1..." oninput="updateAddIndDatalists()">
+            <datalist id="dl-objective"></datalist>
           </div>
         </div>
         <div class="border-t border-white/20 pt-4 mt-4">
@@ -1796,7 +1800,32 @@
         document.getElementById('add-ind-age34').value = '';
         document.getElementById('add-ind-age45').value = '';
         document.getElementById('add-ind-age56').value = '';
+        
+        window.updateAddIndDatalists(); // 初始化下拉選單
+        
         document.getElementById('ind-add-modal').classList.remove('hidden-view');
+    };
+
+    window.updateAddIndDatalists = () => {
+        const domainVal = document.getElementById('add-ind-domain').value;
+        const abilityVal = document.getElementById('add-ind-ability').value;
+        const aspectVal = document.getElementById('add-ind-aspect').value;
+
+        const uniqueDomains = [...new Set(indicatorsDb.map(i => i.domain))].filter(Boolean);
+
+        let filteredForAbility = domainVal ? indicatorsDb.filter(i => i.domain === domainVal) : indicatorsDb;
+        const uniqueAbilities = [...new Set(filteredForAbility.map(i => i.ability))].filter(Boolean);
+
+        let filteredForAspect = abilityVal ? filteredForAbility.filter(i => i.ability === abilityVal) : filteredForAbility;
+        const uniqueAspects = [...new Set(filteredForAspect.map(i => i.aspect))].filter(Boolean);
+
+        let filteredForObj = aspectVal ? filteredForAspect.filter(i => i.aspect === aspectVal) : filteredForAspect;
+        const uniqueObjs = [...new Set(filteredForObj.map(i => i.objective))].filter(Boolean);
+
+        document.getElementById('dl-domain').innerHTML = uniqueDomains.map(d => `<option value="${d}">`).join('');
+        document.getElementById('dl-ability').innerHTML = uniqueAbilities.map(d => `<option value="${d}">`).join('');
+        document.getElementById('dl-aspect').innerHTML = uniqueAspects.map(d => `<option value="${d}">`).join('');
+        document.getElementById('dl-objective').innerHTML = uniqueObjs.map(d => `<option value="${d}">`).join('');
     };
 
     window.closeAddIndModal = () => {
