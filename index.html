@@ -88,11 +88,13 @@
 </head>
 <body class="p-4 md:p-8">
 
+  <!-- 載入中畫面 -->
   <div id="loading-screen" class="fixed inset-0 bg-[#2b5b3f] z-50 flex items-center justify-center text-2xl font-bold flex-col gap-4 text-center transition-opacity duration-300">
     <div class="animate-bounce mb-2 text-6xl">🐻</div>
     <div>系統載入中...</div>
   </div>
 
+  <!-- 資料庫權限錯誤提示 -->
   <div id="db-error-message" class="hidden-view fixed top-4 left-1/2 -translate-x-1/2 bg-red-600/95 text-white px-6 py-4 rounded-xl shadow-2xl z-[100] border-2 border-white backdrop-blur-sm w-11/12 max-w-lg text-center font-bold">
     <!-- 錯誤訊息內容由 JS 動態填入 -->
   </div>
@@ -105,14 +107,15 @@
     <div class="p-5 flex-1 flex flex-col h-full">
       <h2 class="text-2xl font-bold text-yellow-300 border-b-2 border-dashed border-white/30 pb-3 flex items-center justify-between gap-2">
         <div class="flex items-center gap-2"><i data-lucide="clipboard-check"></i> 班級點名簿</div>
-        <select id="att-academic-year" class="chalk-input text-black bg-white text-sm py-0.5 px-1 rounded font-normal" onchange="window.forceRebuildAttendance=true; renderAttendance()">
+        <select id="att-academic-year" class="chalk-input text-black bg-white text-sm py-0.5 px-1 rounded font-normal" onchange="window.forceRebuildAttendance=true; window.renderAttendance()">
+            <!-- 自動產生學年選項 -->
         </select>
       </h2>
       <div class="mt-4 mb-3">
         <label class="text-xs text-yellow-100 font-bold mb-1 block">選擇點名日期：</label>
         <div class="flex items-center gap-2">
           <button onclick="navAttendanceDate(-1)" class="chalk-btn p-1 border-white/50 hover:text-yellow-300 transition-colors"><i data-lucide="chevron-left" class="w-5 h-5"></i></button>
-          <input type="date" id="attendance-date" class="chalk-input flex-1 bg-black/20 rounded px-2 text-center" onchange="renderAttendance()">
+          <input type="date" id="attendance-date" class="chalk-input flex-1 bg-black/20 rounded px-2 text-center" onchange="window.renderAttendance()">
           <button onclick="navAttendanceDate(1)" class="chalk-btn p-1 border-white/50 hover:text-yellow-300 transition-colors"><i data-lucide="chevron-right" class="w-5 h-5"></i></button>
         </div>
       </div>
@@ -122,9 +125,11 @@
          <div class="flex flex-col border-l border-white/20"><span class="text-xs text-red-300">請假</span><span class="text-lg text-red-300" id="att-sum-leave">0</span></div>
       </div>
       <div id="att-leave-breakdown" class="min-h-[40px] mb-2 px-2 flex flex-col justify-center border-b border-dashed border-white/20 pb-2">
+         <!-- 動態產生病假、事假細節 -->
       </div>
       <div class="flex-1 overflow-y-auto custom-scrollbar pr-2">
          <div id="attendance-list" class="flex flex-col gap-3 pb-4">
+            <!-- 點名列表動態產生 -->
          </div>
       </div>
     </div>
@@ -142,6 +147,7 @@
       <div class="mb-4">
         <label class="text-sm font-bold text-yellow-100 mb-1 block">選擇請假老師：</label>
         <select id="leave-teacher-select" class="chalk-input text-black bg-white w-full rounded" onchange="onLeaveTeacherChange()">
+          <!-- 動態載入老師選項 -->
         </select>
         <div class="text-[11px] text-white/70 mt-2 flex gap-3 bg-black/20 p-1.5 rounded justify-center border border-white/10">
           <span class="flex items-center gap-1"><div id="drawer-legend-color-lead" class="w-3 h-3 rounded-sm shadow border border-white/30"></div> <span id="drawer-legend-name-lead">--</span></span>
@@ -159,6 +165,7 @@
           <div>日</div><div>一</div><div>二</div><div>三</div><div>四</div><div>五</div><div>六</div>
         </div>
         <div id="leave-cal-grid" class="grid grid-cols-7 gap-1.5 text-center text-sm">
+          <!-- Calendar days -->
         </div>
       </div>
 
@@ -168,6 +175,7 @@
     </div>
   </div>
 
+  <!-- 標頭 Header -->
   <header class="flex flex-col md:flex-row justify-between items-center mb-8 border-b-4 border-white/50 pb-4 border-dashed">
     <div class="flex items-center gap-3 cursor-pointer" onclick="navigate('home')">
       <span class="text-4xl">🐻</span>
@@ -175,6 +183,7 @@
     </div>
     
     <div class="flex items-center gap-6 mt-4 md:mt-0">
+      <!-- 天氣與日曆 -->
       <div class="flex items-center gap-4 bg-white/10 p-3 rounded-xl border border-white/30 backdrop-blur-sm">
         <div class="flex flex-col items-center justify-center border-2 border-white rounded bg-red-900 overflow-hidden shadow-lg w-16 h-20">
           <div id="header-month" class="bg-red-600 w-full text-center text-xs py-0.5 text-white font-bold border-b border-white">月</div>
@@ -193,6 +202,7 @@
     </div>
   </header>
 
+  <!-- 主要內容區 -->
   <main class="flex-grow">
     
     <!-- 視圖 1: 首頁 -->
@@ -221,12 +231,14 @@
         <p class="text-green-100 text-sm">基本資料、聯絡人、過敏原紀錄</p>
         <div class="mt-auto pt-6 text-2xl">🐾</div>
       </div>
+      <!-- 幼兒園學習指標 -->
       <div onclick="navigate('indicators')" class="chalk-box flex flex-col items-center text-center cursor-pointer hover:-translate-y-2 hover:shadow-2xl transition-transform group">
         <div class="text-yellow-300 group-hover:scale-110 transition-transform mb-4"><i data-lucide="target" class="w-12 h-12"></i></div>
         <h2 class="text-2xl font-bold mb-2 tracking-wider">幼兒園學習指標</h2>
         <p class="text-green-100 text-sm">六大領域學習指標查詢與檢索、教案撰寫輔助</p>
         <div class="mt-auto pt-6 text-2xl">🐾</div>
       </div>
+      <!-- 訪談預約 -->
       <div onclick="window.open('https://lighminge.github.io/Booking-trip/', '_blank')" class="chalk-box flex flex-col items-center text-center cursor-pointer hover:-translate-y-2 hover:shadow-2xl transition-transform group">
         <div class="text-yellow-300 group-hover:scale-110 transition-transform mb-4"><i data-lucide="phone-call" class="w-12 h-12"></i></div>
         <h2 class="text-2xl font-bold mb-2 tracking-wider">訪談預約</h2>
@@ -235,13 +247,16 @@
       </div>
     </div>
 
+    <!-- 視圖 6: 幼兒園學習指標查詢 (全新模組) -->
     <div id="view-indicators" class="max-w-6xl mx-auto space-y-6 hidden-view">
+      <!-- 狀態：空資料或讀取中提示 -->
       <div id="ind-empty-section" class="chalk-box text-center py-12 hidden-view">
         <i data-lucide="database" class="w-16 h-16 mx-auto mb-4 text-yellow-100/50"></i>
         <h2 class="text-2xl font-bold text-yellow-100/80 mb-2">資料讀取中 或 尚未建置資料</h2>
         <p class="text-white/50">請稍候，系統正在連接您的 Firebase 讀取學習指標資料...</p>
       </div>
 
+      <!-- 狀態：查詢條件與結果 -->
       <div id="ind-main-section" class="space-y-6 hidden-view">
         <div class="chalk-box">
           <h2 class="text-2xl font-bold mb-6 flex items-center gap-2 text-yellow-300 border-b border-white/20 pb-3">
@@ -290,7 +305,7 @@
           </div>
           
           <div class="flex justify-end border-t border-white/20 pt-4">
-            <button onclick="renderIndicators()" class="chalk-btn bg-blue-600/70 hover:bg-blue-500 text-lg px-8 shadow-lg">
+            <button onclick="window.renderIndicators()" class="chalk-btn bg-blue-600/70 hover:bg-blue-500 text-lg px-8 shadow-lg">
               <i data-lucide="search" class="w-5 h-5"></i> 查詢指標
             </button>
           </div>
@@ -312,11 +327,13 @@
             </div>
           </h2>
           <div id="ind-results-container" class="space-y-6">
+             <!-- 查詢結果動態產生 -->
           </div>
         </div>
       </div>
     </div>
 
+    <!-- 視圖 5: 學校年度行事曆 -->
     <div id="view-annual" class="max-w-[1400px] mx-auto space-y-6 hidden-view">
       <div class="chalk-box flex flex-wrap gap-6 items-end justify-between relative overflow-hidden">
         <div class="flex flex-wrap gap-4 items-end relative z-10">
@@ -333,7 +350,7 @@
           </div>
           <div class="ml-2 pl-4 border-l-2 border-white/20">
             <label class="block text-sm mb-1 text-yellow-200">開學第一週起始日 (星期一)</label>
-            <input type="date" id="annual-start-date" class="chalk-input text-center text-lg font-bold p-1" title="更改日期後將重新推算 21 週行事曆" onchange="window.hasUnsavedAnnualChanges=true; renderAnnual(false)">
+            <input type="date" id="annual-start-date" class="chalk-input text-center text-lg font-bold p-1" title="更改日期後將重新推算 21 週行事曆" onchange="window.hasUnsavedAnnualChanges=true; window.renderAnnual(false)">
           </div>
           
           <div class="ml-4 pl-4 border-l-2 border-white/20 flex flex-col justify-end">
@@ -372,12 +389,14 @@
               </tr>
             </thead>
             <tbody id="annual-table-body">
+              <!-- JS 動態產生表格內容 -->
             </tbody>
           </table>
         </div>
       </div>
     </div>
 
+    <!-- 視圖 2: 學生管理 -->
     <div id="view-students" class="max-w-5xl mx-auto space-y-8 hidden-view">
       <div class="chalk-box transition-all duration-500 ease-in-out" id="student-form-wrapper">
         <h2 id="student-form-title" class="text-2xl font-bold mb-4 flex items-center gap-2"><i data-lucide="plus-circle"></i> 新增學生資料</h2>
@@ -427,7 +446,8 @@
           </div>
           <div class="flex items-center gap-2 text-sm font-normal">
             <label class="text-yellow-100">篩選學年：</label>
-            <select id="stu-filter-year" class="chalk-input text-black bg-white py-1 rounded" onchange="renderStudents()">
+            <select id="stu-filter-year" class="chalk-input text-black bg-white py-1 rounded" onchange="window.renderStudents()">
+              <!-- 動態產生學年選項 -->
             </select>
           </div>
         </h2>
@@ -440,17 +460,20 @@
             </tr>
           </thead>
           <tbody id="student-table-body">
+            <!-- 學生列表動態產生 -->
           </tbody>
         </table>
       </div>
     </div>
 
+    <!-- 視圖 3: 藏書管理 -->
     <div id="view-books" class="max-w-6xl mx-auto hidden-view">
       <div class="flex gap-4 mb-6">
         <button onclick="switchBookTab('list')" id="tab-book-list" class="chalk-btn bg-white/30"><i data-lucide="book-marked"></i> 藏書清單與借閱</button>
         <button onclick="switchBookTab('auto')" id="tab-book-auto" class="chalk-btn"><i data-lucide="check-square"></i> 藏書租借自動安排</button>
       </div>
 
+      <!-- 藏書清單分頁 -->
       <div id="book-tab-list" class="space-y-8">
         <div class="chalk-box transition-all duration-500 ease-in-out" id="book-form-wrapper">
           <h2 id="book-form-title" class="text-2xl font-bold mb-4 flex items-center gap-2"><i data-lucide="plus-circle"></i> 新增藏書 / 借閱紀錄</h2>
@@ -503,9 +526,11 @@
               </tr>
             </thead>
             <tbody id="book-table-body">
+               <!-- 藏書列表動態產生 -->
             </tbody>
           </table>
           
+          <!-- 藏書分頁控制 -->
           <div id="book-pagination" class="flex justify-center items-center gap-4 mt-6 pt-4 border-t border-white/10 hidden-view">
              <button onclick="navBookPage(-1)" id="btn-book-prev" class="chalk-btn border-white/30 text-white/70 hover:bg-white/10 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed">
                 <i data-lucide="chevron-left" class="w-4 h-4"></i> 上一頁
@@ -518,6 +543,7 @@
         </div>
       </div>
 
+      <!-- 自動安排分頁 -->
       <div id="book-tab-auto" class="grid grid-cols-1 lg:grid-cols-3 gap-6 hidden-view">
         <div class="chalk-box lg:col-span-1 h-fit">
           <h2 class="text-xl font-bold mb-4">1. 參數設定</h2>
@@ -543,7 +569,9 @@
               </div>
             </div>
             <div id="auto-book-checkboxes" class="max-h-60 overflow-y-auto border border-white/30 p-2 rounded custom-scrollbar mb-2">
+              <!-- Checkboxes 產生區 -->
             </div>
+            <!-- 自動安排 Checkbox 的分頁 -->
             <div id="auto-book-pagination" class="flex justify-center items-center gap-4 text-sm mt-2 hidden-view">
                <button onclick="navAutoBookPage(-1)" class="chalk-btn py-1 px-2 border-white/30 text-white/70 hover:bg-white/10 hover:text-white disabled:opacity-30"><i data-lucide="chevron-left" class="w-4 h-4"></i></button>
                <span id="auto-book-page-info" class="font-bold text-yellow-100">1 / 1</span>
@@ -582,8 +610,10 @@
       </div>
     </div>
 
+    <!-- 視圖 4: 行事曆與排程 -->
     <div id="view-schedule" class="flex flex-col gap-6 hidden-view max-w-[1600px] mx-auto w-full">
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- 迷你月曆 -->
         <div class="chalk-box lg:col-span-1 flex flex-col items-center">
           <div class="w-full">
             <div class="flex justify-between items-center mb-3">
@@ -595,7 +625,9 @@
               <div>日</div><div>一</div><div>二</div><div>三</div><div>四</div><div>五</div><div>六</div>
             </div>
             <div id="mini-cal-grid" class="grid grid-cols-7 gap-1 text-center text-sm mt-1">
+              <!-- 月曆天數 -->
             </div>
+            <!-- 老師請假圖例 -->
             <div class="mt-4 text-xs flex flex-col gap-1.5 text-white/80 bg-black/20 p-3 rounded-xl w-full border border-white/10">
               <div class="font-bold text-yellow-200 border-b border-white/10 pb-1.5 mb-1 flex items-center gap-2">
                 <i data-lucide="calendar-x" class="w-3.5 h-3.5"></i> 請假資訊
@@ -616,6 +648,7 @@
           </div>
         </div>
 
+        <!-- 學期資訊與當週重點 -->
         <div class="chalk-box lg:col-span-2 relative">
           <div class="absolute top-4 right-4 flex gap-3 z-10">
             <button onclick="openLinkSettings()" class="text-white/50 hover:text-yellow-300 transition-colors" title="行事曆關聯設定">
@@ -644,6 +677,7 @@
         </div>
       </div>
 
+      <!-- 每週行事曆 Grid -->
       <div class="chalk-box">
         <div class="flex flex-wrap gap-4 justify-between items-center mb-4">
           <button onclick="navWeek(-1)" class="chalk-btn"><i data-lucide="chevron-left" class="w-5 h-5"></i> 上一週</button>
@@ -653,6 +687,7 @@
           </div>
         </div>
         
+        <!-- 當週主題顯示與匯出 -->
         <div id="sch-weekly-theme-display" class="flex-col md:flex-row justify-center items-center gap-4 mb-6 hidden">
           <span class="text-2xl md:text-3xl font-black text-orange-300 bg-black/20 px-8 py-3 rounded-full border-2 border-orange-400 shadow-[0_0_15px_rgba(251,146,60,0.5)] tracking-widest inline-block" id="sch-theme-text"></span>
           <button onclick="exportWeeklyToWord()" class="chalk-btn bg-blue-600/70 hover:bg-blue-500/80 transition-all shadow-lg text-sm md:text-base px-4 py-2 flex items-center gap-2">
@@ -660,7 +695,9 @@
           </button>
         </div>
 
+        <!-- 每日卡片區 (週一至週五) -->
         <div id="sch-days-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 pb-6 pt-2 items-start">
+          <!-- JS 動態產生每日卡片 -->
         </div>
       </div>
     </div>
@@ -727,29 +764,29 @@
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label class="block text-sm font-bold text-green-100 mb-1">領域 <span class="text-red-400">*</span></label>
-            <input id="add-ind-domain" type="text" list="dl-domain" class="chalk-input w-full" placeholder="例如：身體動作" oninput="updateAddIndDatalists()">
+            <input id="add-ind-domain" type="text" list="dl-domain" class="chalk-input w-full" placeholder="例如：身體動作" oninput="window.updateAddIndDatalists()">
             <datalist id="dl-domain"></datalist>
           </div>
           <div>
             <label class="block text-sm font-bold text-green-100 mb-1">領域能力 <span class="text-red-400">*</span></label>
-            <input id="add-ind-ability" type="text" list="dl-ability" class="chalk-input w-full" placeholder="例如：覺察與模仿" oninput="updateAddIndDatalists()">
+            <input id="add-ind-ability" type="text" list="dl-ability" class="chalk-input w-full" placeholder="例如：覺察與模仿" oninput="window.updateAddIndDatalists()">
             <datalist id="dl-ability"></datalist>
           </div>
           <div>
             <label class="block text-sm font-bold text-green-100 mb-1">學習面向 <span class="text-red-400">*</span></label>
-            <input id="add-ind-aspect" type="text" list="dl-aspect" class="chalk-input w-full" placeholder="例如：覺察與模仿" oninput="updateAddIndDatalists()">
+            <input id="add-ind-aspect" type="text" list="dl-aspect" class="chalk-input w-full" placeholder="例如：覺察與模仿" oninput="window.updateAddIndDatalists()">
             <datalist id="dl-aspect"></datalist>
           </div>
           <div>
             <label class="block text-sm font-bold text-green-100 mb-1">課程目標 <span class="text-red-400">*</span></label>
-            <input id="add-ind-objective" type="text" list="dl-objective" class="chalk-input w-full" placeholder="例如：身-幼-1-1-1..." oninput="updateAddIndDatalists()">
+            <input id="add-ind-objective" type="text" list="dl-objective" class="chalk-input w-full" placeholder="例如：身-幼-1-1-1..." oninput="window.updateAddIndDatalists()">
             <datalist id="dl-objective"></datalist>
           </div>
         </div>
         <div class="border-t border-white/20 pt-4 mt-4">
           <div class="flex flex-col md:flex-row md:justify-between md:items-end mb-2 gap-2">
             <label class="block text-sm font-bold text-yellow-200 flex items-center gap-1"><i data-lucide="align-left" class="w-4 h-4"></i> 各歲段指標內容 <span class="text-white/60 font-normal text-xs ml-1">(若無請留白，支援多行輸入)</span></label>
-            <select id="add-ind-target-age" class="chalk-input text-black bg-white text-sm py-1 px-2 rounded font-bold" onchange="toggleAddIndAgeFields()">
+            <select id="add-ind-target-age" class="chalk-input text-black bg-white text-sm py-1 px-2 rounded font-bold" onchange="window.toggleAddIndAgeFields()">
                 <option value="ALL">顯示全部歲段</option>
                 <option value="age23">僅新增 2-3 歲</option>
                 <option value="age34">僅新增 3-4 歲</option>
@@ -797,16 +834,17 @@
         <div class="grid grid-cols-2 gap-4">
           <div>
             <label class="block text-sm mb-1">教師 A</label>
-            <input id="set-teacher-lead" class="chalk-input w-full" value="大熊老師" oninput="updateFirstLeadDropdown()">
+            <input id="set-teacher-lead" class="chalk-input w-full" value="大熊老師" oninput="window.updateFirstLeadDropdown()">
           </div>
           <div>
             <label class="block text-sm mb-1">教師 B</label>
-            <input id="set-teacher-co" class="chalk-input w-full" value="兔兔老師" oninput="updateFirstLeadDropdown()">
+            <input id="set-teacher-co" class="chalk-input w-full" value="兔兔老師" oninput="window.updateFirstLeadDropdown()">
           </div>
         </div>
         <div class="mt-4 border-t border-white/30 pt-4">
           <label class="block text-sm mb-1 text-yellow-200">設定第一週的主教老師 (系統會自動隔週輪替)</label>
           <select id="set-teacher-firstLead" class="chalk-input w-full text-black bg-white font-bold">
+            <!-- 選項由 JS 動態產生 -->
           </select>
         </div>
         <button onclick="saveTeacherSettings()" class="chalk-btn w-full justify-center bg-yellow-600/50 mt-4">儲存教師設定</button>
@@ -814,12 +852,14 @@
     </div>
   </div>
 
+  <!-- Firebase 應用邏輯 -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
     import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
     import { getFirestore, collection, onSnapshot, doc, setDoc, addDoc, deleteDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
     import { initializeAppCheck, ReCaptchaV3Provider, onTokenChanged, getToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app-check.js";
 
+    // 系統變數 (強制綁定您的專案資料庫)
     const firebaseConfig = {
       apiKey: "AIzaSyC0jlWhJ-9J969SuuHt3uZVaHJaoOXTMus",
       authDomain: "github-class-info.firebaseapp.com",
@@ -835,11 +875,15 @@
     // 🛡️ reCAPTCHA v3 (Firebase App Check) 安全設定 🛡️
     const recaptchaSiteKey = "6Lemz84sAAAAANdzXXLXB5IDIikNbII4BQDQebCY"; 
     
+    // 💡 允許在開發環境 (localhost) 中測試 App Check
+    // self.FIREBASE_APPCHECK_DEBUG_TOKEN = true; // 如果在本地測試一直失敗，可以解除這行註解
+
     // 🚀 系統已啟用 App Check (準備部署至 GitHub Pages 等正式網域)
     const ENABLE_APP_CHECK = true; 
     let globalAppCheck = null;
 
     if (ENABLE_APP_CHECK && recaptchaSiteKey && recaptchaSiteKey.trim() !== "") {
+        // 判斷是否在動態預覽環境 (Canvas) 中
         const isPreviewEnv = window.location.hostname.includes('usercontent.goog') || window.location.hostname === '';
         
         if (isPreviewEnv) {
@@ -852,6 +896,7 @@
                 });
                 console.log("🛡️ reCAPTCHA App Check 模組已載入");
 
+                // 加入這段來監聽 Token 狀態，真正確認是否有成功跟 Google/Firebase 換到憑證
                 onTokenChanged(globalAppCheck, (token) => {
                     console.log("✅ 成功取得 reCAPTCHA App Check 驗證憑證 (Token)！");
                 }, (error) => {
@@ -862,15 +907,18 @@
                 console.warn("⚠️ reCAPTCHA 模組無法啟動，但不影響基本功能：", e);
             }
         }
+    } else {
+        console.warn("⚠️ 系統目前為「開發/預覽模式」，已暫停啟用 reCAPTCHA App Check 驗證以防不斷報錯。請於部署至正式環境時將 ENABLE_APP_CHECK 改為 true。");
     }
 
-    // 🌟 手動取得 reCAPTCHA Token 送值出去的通用函式
+    // 🌟 新增：手動取得 reCAPTCHA Token 送值出去的通用函式
     window.getRecaptchaToken = async () => {
         if (!globalAppCheck) {
             console.warn("App Check 尚未初始化或被停用，無法取得 Token。");
             return null;
         }
         try {
+            // forceRefresh = false 表示優先使用快取的 Token，若過期才會重新向 Google 拿
             const appCheckTokenResponse = await getToken(globalAppCheck, false);
             return appCheckTokenResponse.token;
         } catch (err) {
@@ -881,12 +929,15 @@
 
     const auth = getAuth(app);
     const db = getFirestore(app);
+    
+    // ⚠️ 若要在 GitHub 等外部環境執行進階 AI 功能，請於雙引號內填入您專屬的 Google Gemini API Key
     const apiKey = ""; 
     
     let currentUser = null;
     let currentView = 'home';
     let today = new Date();
     
+    // 徹底解決 Canvas 權限問題：直接使用 Firebase Root Collection (與您 GitHub 設定完全一致)
     const getCol = (colName) => collection(db, colName);
     const getDoc = (colName, docId) => doc(db, colName, docId);
 
@@ -898,6 +949,7 @@
     let indicatorsDb = []; 
     let schSettings = { academicYear: '114', semester: '下學期', leadTeacher: '大熊老師', coTeacher: '兔兔老師', firstWeekLead: '大熊老師', id: null };
     
+    // 教師請假資料狀態
     let teacherLeavesData = {}; 
     let leaveCalDate = new Date();
     let stagedLeaves = new Set();
@@ -908,14 +960,17 @@
     window.currentRenderedYear = '114';
     window.currentRenderedSemester = '下學期';
     window.isAttendanceLoaded = false;
-    window.listenersStarted = false; 
+    window.listenersStarted = false; // 防止重複掛載資料監聽器
     
+    // 藏書分頁狀態
     let bookCurrentPage = 1;
     const BOOKS_PER_PAGE = 10;
     
+    // 自動安排藏書分頁與勾選狀態
     let autoBookCurrentPage = 1;
     let selectedAutoBookIds = new Set();
     
+    // 紀錄目前畫面篩選出的學習指標 (供匯出TXT使用)
     window.currentFilteredIndicators = [];
 
     window.addEventListener('beforeunload', (e) => {
@@ -933,8 +988,11 @@
     }
     let viewingWeek = 1;
     let promptCallback = null;
+    
+    // 儲存最新的自動安排結果 (供列印與套用使用)
     window.currentAutoArrangement = null;
 
+    // 取得教師色彩主題設定 (動態判定文文老師)
     window.getTeacherThemes = () => {
         const leadName = schSettings.leadTeacher || '教師 A';
         const coName = schSettings.coTeacher || '教師 B';
@@ -942,6 +1000,7 @@
         let leadTheme = 'rose';
         let coTheme = 'blue';
         
+        // 只要名字包含文文，自動套用藍色版型
         if (leadName.includes('文文')) {
             leadTheme = 'blue';
             coTheme = 'rose';
@@ -973,6 +1032,7 @@
         };
     };
 
+    // --- 文本比對演算法 (Bigram) 用於學習指標推薦 ---
     const getBigrams = (text) => {
         let bigrams = new Set();
         let cleaned = String(text || '').replace(/[^\u4e00-\u9fa5a-zA-Z0-9]/g, '');
@@ -998,6 +1058,7 @@
         container.classList.add('flex');
         lucide.createIcons();
 
+        // 使用 setTimeout 讓 UI 顯示 Loading 狀態
         setTimeout(() => {
             const refBigrams = getBigrams(refText);
             if (refBigrams.size === 0) {
@@ -1005,11 +1066,13 @@
                 return;
             }
 
+            // 取得老師選擇的歲數
             const ageSelect = document.getElementById(`sch-${type}-age-${index}`);
             const ageKey = ageSelect ? ageSelect.value : 'age23';
             const ageLabels = { 'age23': '2-3歲', 'age34': '3-4歲', 'age45': '4-5歲', 'age56': '5-6歲' };
             const ageLabel = ageLabels[ageKey];
 
+            // 針對資料庫進行比對與計分 (動態抓取選定歲數的內容與專屬備註)
             let scored = indicatorsDb.filter(ind => ind[ageKey] && String(ind[ageKey]).trim() !== '').map(ind => {
                 const remarksText = ind.remarks ? Object.values(ind.remarks).join(' ') : '';
                 const fullText = `${ind.domain || ''} ${ind.ability || ''} ${ind.aspect || ''} ${ind.objective || ''} ${ind[ageKey] || ''} ${remarksText}`;
@@ -1021,7 +1084,9 @@
                 return { item: ind, score: intersection };
             });
 
+            // 依據相似度分數排序
             scored.sort((a, b) => b.score - a.score);
+            // 只取分數大於 0 的前 3 名
             const topResults = scored.filter(s => s.score > 0).slice(0, 3);
 
             if (topResults.length === 0) {
@@ -1047,7 +1112,7 @@
                             <span class="font-bold text-white/90">${res.item.objective || ''}</span><br>
                             <span class="text-orange-200 text-[11px]">${ageText}</span>
                         </div>
-                        <button onclick="copySuggestion('${res.item.id}', '${ageKey}')" class="text-[10px] bg-blue-600/80 hover:bg-blue-500 px-2 py-1 rounded text-white shrink-0 mt-0.5 border border-blue-400">複製</button>
+                        <button onclick="window.copySuggestion('${res.item.id}', '${ageKey}')" class="text-[10px] bg-blue-600/80 hover:bg-blue-500 px-2 py-1 rounded text-white shrink-0 mt-0.5 border border-blue-400">複製</button>
                     </div>
                 `;
             });
@@ -1069,7 +1134,9 @@
         document.body.removeChild(ta);
         window.showAlert('✅ 指標已複製！<br>您現在可以直接在區塊右鍵「貼上」。');
     };
+    // --- 文本比對演算法結束 ---
 
+    // 匯出幼兒園學習指標為文字檔 (TXT) - 僅匯出純指標
     window.exportIndicatorsToTxt = () => {
         if (!window.currentFilteredIndicators || window.currentFilteredIndicators.length === 0) {
             window.showAlert('⚠️ 目前沒有可匯出的查詢結果。');
@@ -1106,6 +1173,7 @@
         document.body.removeChild(link);
     };
 
+    // AI 金鑰同步與顯示邏輯
     window.updateApiKey = (val) => {
         const trimmed = val.trim();
         localStorage.setItem('bearClass_customApiKey', trimmed);
@@ -1275,24 +1343,26 @@
     const hDayEl = document.getElementById('header-day');
     if (hDayEl) hDayEl.innerText = `星期${headerDays[today.getDay()]}`;
 
+    // ================= 老師請假系統 (浮動工具) =================
     window.toggleLeaveDrawer = () => {
         const drawer = document.getElementById('leave-drawer');
         const attDrawer = document.getElementById('attendance-drawer');
         drawer.classList.toggle('-translate-x-full');
         
+        // Z-Index 自動蓋台機制
         if (!drawer.classList.contains('-translate-x-full')) {
-            drawer.style.zIndex = '70'; 
+            drawer.style.zIndex = '70'; // 把老師請假推到最上層
             if (attDrawer) {
-                attDrawer.style.zIndex = '60'; 
+                attDrawer.style.zIndex = '60'; // 把點名簿退到下層
                 if (!attDrawer.classList.contains('-translate-x-full')) {
-                    attDrawer.classList.add('-translate-x-full'); 
+                    attDrawer.classList.add('-translate-x-full'); // 幫忙收起來
                 }
             }
             window.updateLeaveTeacherDropdown();
             window.initStagedLeaves();
             window.renderLeaveCalendar();
         } else {
-            drawer.style.zIndex = '60'; 
+            drawer.style.zIndex = '60'; // 關閉時重置
         }
     };
     
@@ -1301,16 +1371,17 @@
         const leaveDrawer = document.getElementById('leave-drawer');
         attDrawer.classList.toggle('-translate-x-full');
         
+        // Z-Index 自動蓋台機制
         if (!attDrawer.classList.contains('-translate-x-full')) {
-            attDrawer.style.zIndex = '70'; 
+            attDrawer.style.zIndex = '70'; // 把點名簿推到最上層
             if (leaveDrawer) {
-                leaveDrawer.style.zIndex = '60'; 
+                leaveDrawer.style.zIndex = '60'; // 把老師請假退到下層
                 if (!leaveDrawer.classList.contains('-translate-x-full')) {
-                    leaveDrawer.classList.add('-translate-x-full'); 
+                    leaveDrawer.classList.add('-translate-x-full'); // 幫忙收起來
                 }
             }
         } else {
-            attDrawer.style.zIndex = '60'; 
+            attDrawer.style.zIndex = '60'; // 關閉時重置
         }
     };
 
@@ -1324,6 +1395,7 @@
         else select.value = themes.leadName;
         currentLeaveTeacher = select.value;
 
+        // 同步更新圖例文字與顏色
         const dNameLead = document.getElementById('drawer-legend-name-lead');
         const dNameCo = document.getElementById('drawer-legend-name-co');
         const dColLead = document.getElementById('drawer-legend-color-lead');
@@ -1359,13 +1431,15 @@
         if (stagedLeaves.has(dateStr)) {
             stagedLeaves.delete(dateStr);
         } else {
+            // 檢查是否另一位老師已經在同一天請假
             const existingTeachers = teacherLeavesData[dateStr] || [];
             const otherTeacher = existingTeachers.find(t => t !== currentLeaveTeacher);
             
             if (otherTeacher) {
                 window.showAlert(`⚠️ 衝突警告！\n\n【${otherTeacher}】已經在這天申請休假了。\n為了維持班級正常運作，兩位老師不能在同一天排休喔！`);
-                return; 
+                return; // 阻止加入請假清單
             }
+            
             stagedLeaves.add(dateStr);
         }
         window.renderLeaveCalendar();
@@ -1379,13 +1453,16 @@
         btn.disabled = true;
         lucide.createIcons();
 
+        // 建立新的紀錄表
         let newRecords = JSON.parse(JSON.stringify(teacherLeavesData));
         
+        // 1. 先將該老師從所有舊日期中移除
         for (const date in newRecords) {
             newRecords[date] = newRecords[date].filter(t => t !== currentLeaveTeacher);
             if (newRecords[date].length === 0) delete newRecords[date];
         }
 
+        // 2. 將該老師加入這次確認勾選的日期中
         stagedLeaves.forEach(date => {
             if (!newRecords[date]) newRecords[date] = [];
             newRecords[date].push(currentLeaveTeacher);
@@ -1394,8 +1471,8 @@
         try {
             await setDoc(getDoc("bear_teacherLeaves", "all_leaves"), { records: newRecords }, { merge: true });
             window.showAlert('✅ 老師請假日期已成功儲存！\n行事曆上也會同步更新記號。');
-            teacherLeavesData = newRecords; 
-            if(currentView === 'schedule') renderSchedule();
+            teacherLeavesData = newRecords; // 樂觀更新
+            if(currentView === 'schedule') window.renderSchedule();
         } catch(e) {
             handleSnapshotError(e);
         } finally {
@@ -1426,6 +1503,7 @@
             let txtClass = isT ? "text-yellow-300 font-bold" : "text-white/80";
 
             if (isSelected) {
+                // 套用動態老師色彩
                 if (currentLeaveTeacher === themes.leadName) {
                     bgClass = `${themes.lead.bg} border ${themes.lead.border} ${themes.lead.shadow} text-white font-bold`;
                 } else {
@@ -1436,12 +1514,13 @@
                  bgClass += " border border-yellow-500";
             }
 
-            html += `<div onclick="toggleLeaveDate('${dateStr}')" class="cursor-pointer rounded p-1 text-center text-sm transition-colors ${bgClass} ${txtClass}">${d}</div>`;
+            html += `<div onclick="window.toggleLeaveDate('${dateStr}')" class="cursor-pointer rounded p-1 text-center text-sm transition-colors ${bgClass} ${txtClass}">${d}</div>`;
         }
         document.getElementById('leave-cal-grid').innerHTML = html;
     };
 
 
+    // ================= 幼兒園學習指標系統 =================
     let indFilters = { domain: '', ability: '', aspect: '', objective: '', age: 'ALL' };
 
     window.handleIndFilterChange = (type) => {
@@ -1452,7 +1531,7 @@
         if (type === 'ability') { indFilters.aspect = ''; indFilters.objective = ''; }
         if (type === 'aspect') { indFilters.objective = ''; }
         
-        renderIndicators();
+        window.renderIndicators();
     };
 
     window.renderIndicators = () => {
@@ -1465,6 +1544,7 @@
         document.getElementById('ind-empty-section').classList.add('hidden-view');
         document.getElementById('ind-main-section').classList.remove('hidden-view');
 
+        // 過濾選項
         let filteredForAbility = indicatorsDb;
         if(indFilters.domain) filteredForAbility = filteredForAbility.filter(i => i.domain === indFilters.domain);
         
@@ -1496,18 +1576,21 @@
         document.getElementById('ind-filter-aspect').disabled = !indFilters.ability && uniqueAspects.length === 0;
         document.getElementById('ind-filter-objective').disabled = !indFilters.aspect && uniqueObjs.length === 0;
 
+        // 查詢結果
         let results = indicatorsDb;
         if (indFilters.domain) results = results.filter(item => item.domain === indFilters.domain);
         if (indFilters.ability) results = results.filter(item => item.ability === indFilters.ability);
         if (indFilters.aspect) results = results.filter(item => item.aspect === indFilters.aspect);
         if (indFilters.objective) results = results.filter(item => item.objective === indFilters.objective);
 
+        // 1. 以課程目標進行排序 (由上到下，由小至大)
         results.sort((a, b) => {
             const objA = String(a.objective || "");
             const objB = String(b.objective || "");
             return objA.localeCompare(objB, 'zh-TW', { numeric: true });
         });
 
+        // 儲存目前過濾結果供匯出使用
         window.currentFilteredIndicators = results;
         document.getElementById('ind-results-count').innerText = results.length;
 
@@ -1519,6 +1602,7 @@
 
         let resultsHtml = '';
         
+        // 2. 將每筆的學習指標獨立分開渲染，並加入個別專屬備註
         const renderAgeLines = (item, text, ageLabel, dbId, ageKey) => {
             const safeText = String(text || '');
             if (safeText.trim() === '') return '';
@@ -1530,6 +1614,7 @@
                 const uniqueId = `ind-text-${dbId}-${ageKey}-${lineIndex}`;
                 const safeLine = String(line).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
                 
+                // 讀取這條特定指標的專屬備註
                 const remarkKey = `${ageKey}_${lineIndex}`;
                 const remarkText = (item.remarks && item.remarks[remarkKey]) ? item.remarks[remarkKey] : '';
                 const safeRemark = String(remarkText || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
@@ -1541,28 +1626,29 @@
                         <span class="text-xs text-orange-300 font-bold">${ageLabel}</span>
                         
                         <div class="flex gap-1 opacity-0 group-hover/ind:opacity-100 transition-all focus-within:opacity-100" id="ind-actions-${uniqueId}">
-                            <button onclick="enableIndEdit('${dbId}', '${ageKey}', ${lineIndex}, '${uniqueId}')" class="text-[10px] bg-yellow-600/80 hover:bg-yellow-500 text-white px-2 py-1 rounded shadow border border-yellow-500"><i data-lucide="edit-3" class="w-3 h-3 inline-block align-middle mr-1"></i>修改</button>
-                            <button onclick="copyText('${uniqueId}')" class="text-[10px] bg-blue-500/80 hover:bg-blue-400 text-white px-2 py-1 rounded shadow border border-blue-300"><i data-lucide="copy" class="w-3 h-3 inline-block align-middle mr-1"></i>複製</button>
-                            <button onclick="deleteIndLine('${dbId}', '${ageKey}', ${lineIndex})" class="text-[10px] bg-red-600/80 hover:bg-red-500 text-white px-2 py-1 rounded shadow border border-red-500"><i data-lucide="trash-2" class="w-3 h-3 inline-block align-middle mr-1"></i>刪除</button>
+                            <button onclick="window.enableIndEdit('${dbId}', '${ageKey}', ${lineIndex}, '${uniqueId}')" class="text-[10px] bg-yellow-600/80 hover:bg-yellow-500 text-white px-2 py-1 rounded shadow border border-yellow-500"><i data-lucide="edit-3" class="w-3 h-3 inline-block align-middle mr-1"></i>修改</button>
+                            <button onclick="window.copyText('${uniqueId}')" class="text-[10px] bg-blue-500/80 hover:bg-blue-400 text-white px-2 py-1 rounded shadow border border-blue-300"><i data-lucide="copy" class="w-3 h-3 inline-block align-middle mr-1"></i>複製</button>
+                            <button onclick="window.deleteIndLine('${dbId}', '${ageKey}', ${lineIndex})" class="text-[10px] bg-red-600/80 hover:bg-red-500 text-white px-2 py-1 rounded shadow border border-red-500"><i data-lucide="trash-2" class="w-3 h-3 inline-block align-middle mr-1"></i>刪除</button>
                         </div>
                         
                         <div class="hidden-view flex gap-1" id="ind-save-actions-${uniqueId}">
-                            <button onclick="cancelIndEdit('${uniqueId}')" class="text-[10px] bg-gray-500/80 hover:bg-gray-400 text-white px-2 py-1 rounded shadow border border-gray-400">取消</button>
-                            <button onclick="saveIndInlineEdit('${dbId}', '${ageKey}', ${lineIndex}, '${uniqueId}')" class="text-[10px] bg-green-600/80 hover:bg-green-500 text-white px-2 py-1 rounded shadow border border-green-500"><i data-lucide="check" class="w-3 h-3 inline-block align-middle mr-1"></i>儲存</button>
+                            <button onclick="window.cancelIndEdit('${uniqueId}')" class="text-[10px] bg-gray-500/80 hover:bg-gray-400 text-white px-2 py-1 rounded shadow border border-gray-400">取消</button>
+                            <button onclick="window.saveIndInlineEdit('${dbId}', '${ageKey}', ${lineIndex}, '${uniqueId}')" class="text-[10px] bg-green-600/80 hover:bg-green-500 text-white px-2 py-1 rounded shadow border border-green-500"><i data-lucide="check" class="w-3 h-3 inline-block align-middle mr-1"></i>儲存</button>
                         </div>
                     </div>
                     
                     <textarea id="${uniqueId}" data-original="${safeLine}" readonly class="text-sm text-white/90 bg-transparent resize-none outline-none w-full custom-scrollbar flex-1 mb-2" rows="3">${line}</textarea>
                     
+                    <!-- 此特定指標的專屬備註 -->
                     <div class="mt-auto pt-2 border-t border-dashed border-white/20 flex flex-col group/remark">
                         <div class="flex justify-between items-center mb-1 min-h-[20px]">
                             <span class="text-[10px] text-blue-300 font-bold"><i data-lucide="message-square" class="w-3 h-3 inline"></i> 專屬備註 (供推薦比對)</span>
                             <div class="opacity-0 group-hover/remark:opacity-100 transition-opacity focus-within:opacity-100" id="rem-actions-${uniqueId}">
-                                <button onclick="enableRemarkEdit('${uniqueId}')" class="text-[9px] bg-yellow-600/80 hover:bg-yellow-500 text-white px-1.5 py-0.5 rounded shadow">編輯備註</button>
+                                <button onclick="window.enableRemarkEdit('${uniqueId}')" class="text-[9px] bg-yellow-600/80 hover:bg-yellow-500 text-white px-1.5 py-0.5 rounded shadow">編輯備註</button>
                             </div>
                             <div class="hidden-view flex gap-1" id="rem-save-actions-${uniqueId}">
-                                <button onclick="cancelRemarkEdit('${uniqueId}')" class="text-[9px] bg-gray-500/80 hover:bg-gray-400 text-white px-1.5 py-0.5 rounded shadow">取消</button>
-                                <button onclick="saveRemarkEdit('${dbId}', '${remarkKey}', '${uniqueId}')" class="text-[9px] bg-green-600/80 hover:bg-green-500 text-white px-1.5 py-0.5 rounded shadow">儲存</button>
+                                <button onclick="window.cancelRemarkEdit('${uniqueId}')" class="text-[9px] bg-gray-500/80 hover:bg-gray-400 text-white px-1.5 py-0.5 rounded shadow">取消</button>
+                                <button onclick="window.saveRemarkEdit('${dbId}', '${remarkKey}', '${uniqueId}')" class="text-[9px] bg-green-600/80 hover:bg-green-500 text-white px-1.5 py-0.5 rounded shadow">儲存</button>
                             </div>
                         </div>
                         <textarea id="rem-text-${uniqueId}" data-original="${safeRemark}" readonly class="text-xs text-yellow-100/60 bg-transparent resize-none outline-none w-full custom-scrollbar min-h-[30px]" placeholder="尚無備註...">${remarkText}</textarea>
@@ -1577,6 +1663,7 @@
             const ageAge = indFilters.age;
             let ageHtml = '';
             
+            // 只有在該歲數有真實內容時，才包裝 div
             if (ageAge === 'ALL' || ageAge === 'age23') {
                 const linesHtml = renderAgeLines(item, item.age23, '2-3 歲', item.id, 'age23');
                 if (linesHtml) ageHtml += `<div>${linesHtml}</div>`;
@@ -1607,8 +1694,8 @@
                 <div class="w-full mt-2 flex justify-between items-center group/obj">
                    <span class="text-lg font-bold text-yellow-300 break-all pr-2">${item.objective}</span>
                    <div class="opacity-0 group-hover/obj:opacity-100 transition-opacity flex gap-2 shrink-0">
-                       <button onclick="editObjective('${item.id}')" class="text-[11px] bg-yellow-600/80 hover:bg-yellow-500 px-2 py-1 rounded text-white shadow border border-yellow-500"><i data-lucide="edit-3" class="w-3 h-3 inline align-middle mr-1"></i>修改</button>
-                       <button onclick="deleteObjective('${item.id}')" class="text-[11px] bg-red-600/80 hover:bg-red-500 px-2 py-1 rounded text-white shadow border border-red-500"><i data-lucide="trash-2" class="w-3 h-3 inline align-middle mr-1"></i>刪除</button>
+                       <button onclick="window.editObjective('${item.id}')" class="text-[11px] bg-yellow-600/80 hover:bg-yellow-500 px-2 py-1 rounded text-white shadow border border-yellow-500"><i data-lucide="edit-3" class="w-3 h-3 inline align-middle mr-1"></i>修改</button>
+                       <button onclick="window.deleteObjective('${item.id}')" class="text-[11px] bg-red-600/80 hover:bg-red-500 px-2 py-1 rounded text-white shadow border border-red-500"><i data-lucide="trash-2" class="w-3 h-3 inline align-middle mr-1"></i>刪除</button>
                    </div>
                 </div>
               </div>
@@ -1623,6 +1710,7 @@
         lucide.createIcons();
     };
 
+    // 啟動單筆學習指標的編輯模式
     window.enableIndEdit = (dbId, ageKey, lineIndex, uniqueId) => {
         const ta = document.getElementById(uniqueId);
         ta.removeAttribute('readonly');
@@ -1634,6 +1722,7 @@
         document.getElementById(`ind-save-actions-${uniqueId}`).classList.remove('hidden-view');
     };
 
+    // 取消單筆學習指標的編輯
     window.cancelIndEdit = (uniqueId) => {
         const ta = document.getElementById(uniqueId);
         ta.value = ta.getAttribute('data-original');
@@ -1645,6 +1734,7 @@
         document.getElementById(`ind-save-actions-${uniqueId}`).classList.add('hidden-view');
     };
 
+    // 儲存單筆學習指標的修改
     window.saveIndInlineEdit = async (dbId, ageKey, lineIndex, uniqueId) => {
         const ta = document.getElementById(uniqueId);
         const newVal = ta.value.trim();
@@ -1652,10 +1742,11 @@
         const item = indicatorsDb.find(i => i.id === dbId);
         if(!item) return;
 
+        // 重新組合該歲數的完整文字
         let lines = (item[ageKey] || '').split(/\r?\n/).filter(l => l.trim() !== '');
         
         if (newVal === '') {
-            lines.splice(lineIndex, 1); 
+            lines.splice(lineIndex, 1); // 若清空則刪除該行
         } else {
             lines[lineIndex] = newVal;
         }
@@ -1672,15 +1763,20 @@
 
         try {
             await updateDoc(getDoc("bear_indicators", dbId), updateData);
+            
+            // 樂觀更新：先將新的值設定到 data-original 中，避免 cancel 時跳回舊值
             ta.setAttribute('data-original', newVal);
             
+            // 顯示成功狀態於按鈕上
             saveBtn.innerHTML = '<i data-lucide="check" class="w-3 h-3 inline-block mr-1"></i>已儲存';
             saveBtn.classList.remove('bg-green-600/80');
             saveBtn.classList.add('bg-green-500');
             lucide.createIcons();
 
+            // 稍微延遲後自動關閉編輯模式
             setTimeout(() => {
-                cancelIndEdit(uniqueId);
+                window.cancelIndEdit(uniqueId);
+                // 恢復按鈕原本的狀態 (預防 onSnapshot 尚未重繪完成)
                 saveBtn.innerHTML = oldHtml;
                 saveBtn.disabled = false;
                 saveBtn.classList.add('bg-green-600/80');
@@ -1697,6 +1793,7 @@
         }
     };
 
+    // 刪除單筆學習指標 (特定歲段的單一條目)
     window.deleteIndLine = (dbId, ageKey, lineIndex) => {
         const item = indicatorsDb.find(i => i.id === dbId);
         if(!item) return;
@@ -1709,6 +1806,7 @@
             const updateData = {};
             updateData[ageKey] = newBlock;
 
+            // 自動將備註陣列往前推，保持對應關係
             const newRemarks = { ...(item.remarks || {}) };
             delete newRemarks[`${ageKey}_${lineIndex}`];
             
@@ -1732,7 +1830,6 @@
 
             try {
                 await updateDoc(getDoc("bear_indicators", dbId), updateData);
-                window.showAlert('✅ 學習指標刪除成功！');
             } catch(e) {
                 console.error(e);
                 window.showAlert('❌ 刪除失敗，請確認您的資料庫連線權限。');
@@ -1740,6 +1837,7 @@
         });
     };
 
+    // 編輯整個課程目標
     window.editObjective = (dbId) => {
         const item = indicatorsDb.find(i => i.id === dbId);
         if (!item) return;
@@ -1747,13 +1845,13 @@
             if (!newVal || newVal.trim() === '' || newVal === item.objective) return;
             try {
                 await updateDoc(getDoc("bear_indicators", dbId), { objective: newVal.trim() });
-                window.showAlert('✅ 課程目標修改成功！');
             } catch(e) {
                 window.showAlert('❌ 修改失敗。');
             }
         }, item.objective);
     };
 
+    // 刪除整個課程目標
     window.deleteObjective = (dbId) => {
         const item = indicatorsDb.find(i => i.id === dbId);
         if (!item) return;
@@ -1771,13 +1869,13 @@
         window.openConfirm(msg, async () => {
             try {
                 await deleteDoc(getDoc("bear_indicators", dbId));
-                window.showAlert('✅ 課程目標已刪除！');
             } catch(e) {
                 window.showAlert('❌ 刪除失敗。');
             }
         });
     };
 
+    // 備註說明的編輯、取消與儲存
     window.enableRemarkEdit = (uniqueId) => {
         const ta = document.getElementById(`rem-text-${uniqueId}`);
         ta.removeAttribute('readonly');
@@ -1816,6 +1914,7 @@
                 remarks: { [remarkKey]: newVal }
             }, { merge: true });
             
+            // 樂觀更新
             ta.setAttribute('data-original', newVal);
             
             saveBtn.innerHTML = '<i data-lucide="check" class="w-3 h-3 inline-block mr-1"></i>已儲存';
@@ -1824,7 +1923,7 @@
             lucide.createIcons();
 
             setTimeout(() => {
-                cancelRemarkEdit(uniqueId);
+                window.cancelRemarkEdit(uniqueId);
                 saveBtn.innerHTML = oldHtml;
                 saveBtn.disabled = false;
                 saveBtn.classList.add('bg-green-600/80');
@@ -1855,6 +1954,7 @@
         });
     };
 
+    // 新增學習指標相關功能
     window.openAddIndModal = () => {
         document.getElementById('add-ind-domain').value = '';
         document.getElementById('add-ind-ability').value = '';
@@ -1867,7 +1967,7 @@
         
         document.getElementById('add-ind-target-age').value = 'ALL';
         window.toggleAddIndAgeFields();
-        window.updateAddIndDatalists(); 
+        window.updateAddIndDatalists(); // 初始化下拉選單
         
         document.getElementById('ind-add-modal').classList.remove('hidden-view');
     };
@@ -1878,10 +1978,13 @@
         const aspectVal = document.getElementById('add-ind-aspect').value;
 
         const uniqueDomains = [...new Set(indicatorsDb.map(i => i.domain))].filter(Boolean);
+
         let filteredForAbility = domainVal ? indicatorsDb.filter(i => i.domain === domainVal) : indicatorsDb;
         const uniqueAbilities = [...new Set(filteredForAbility.map(i => i.ability))].filter(Boolean);
+
         let filteredForAspect = abilityVal ? filteredForAbility.filter(i => i.ability === abilityVal) : filteredForAbility;
         const uniqueAspects = [...new Set(filteredForAspect.map(i => i.aspect))].filter(Boolean);
+
         let filteredForObj = aspectVal ? filteredForAspect.filter(i => i.aspect === aspectVal) : filteredForAspect;
         const uniqueObjs = [...new Set(filteredForObj.map(i => i.objective))].filter(Boolean);
 
@@ -1923,9 +2026,11 @@
         lucide.createIcons();
 
         try {
+            // 檢查是否已存在相同的課程目標
             const existingInd = indicatorsDb.find(i => i.objective === objective);
             
             if (existingInd) {
+                // 如果已存在，則進行「合併/追加」而非產生重複指標
                 const updateData = {};
                 if (a23) updateData.age23 = existingInd.age23 ? existingInd.age23 + '\n' + a23 : a23;
                 if (a34) updateData.age34 = existingInd.age34 ? existingInd.age34 + '\n' + a34 : a34;
@@ -1939,9 +2044,16 @@
                     window.showAlert('⚠️ 課程目標已存在，但您沒有輸入任何新的指標內容。');
                 }
             } else {
+                // 儲存全新的指標
                 const data = {
-                    domain, ability, aspect, objective,
-                    age23: a23, age34: a34, age45: a45, age56: a56,
+                    domain,
+                    ability,
+                    aspect,
+                    objective,
+                    age23: a23,
+                    age34: a34,
+                    age45: a45,
+                    age56: a56,
                     remarks: {}
                 };
                 await addDoc(getCol("bear_indicators"), data);
@@ -1973,9 +2085,10 @@
       const mm = String(currentDate.getMonth() + 1).padStart(2, '0');
       const dd = String(currentDate.getDate()).padStart(2, '0');
       dateInput.value = `${yyyy}-${mm}-${dd}`;
-      renderAttendance();
+      window.renderAttendance();
     };
 
+    // 只負責重繪 HTML (當學生數量改變或初次載入時)
     window.renderAttendance = () => {
         const dateInput = document.getElementById('attendance-date');
         if(!dateInput.value) {
@@ -1983,6 +2096,7 @@
             dateInput.value = new Date(today.getTime() - tzOffset).toISOString().split('T')[0];
         }
         
+        // 取得目前點名簿下拉選單的學年 (如果沒有則初始化)
         let filterYear = document.getElementById('att-academic-year').value;
         const uniqueYears = [...new Set(studentsData.map(s => s.academicYear))].filter(y=>y).sort((a,b) => b-a);
         if(!filterYear) {
@@ -1990,7 +2104,6 @@
             document.getElementById('att-academic-year').innerHTML = uniqueYears.map(y => `<option value="${y}" ${y===filterYear?'selected':''}>${y}學年</option>`).join('');
         }
 
-        // 僅篩選在學學生
         const currentYearStudents = [...studentsData]
             .filter(s => s.academicYear === filterYear && (!s.status || s.status === '在學'))
             .sort((a,b) => Number(a.seatNo) - Number(b.seatNo));
@@ -2004,6 +2117,8 @@
              return;
         }
 
+        // 只有在學生數量改變、資料被修改過，或是目前為空資料時才重新產生整個 HTML
+        // 以防止在打卡時畫面一直刷新重繪，導致選單閃爍
         if (window.forceRebuildAttendance || currentItemCount !== currentYearStudents.length || currentList.innerHTML.includes('正在讀取')) {
             let listHtml = '';
             currentYearStudents.forEach(s => {
@@ -2015,12 +2130,12 @@
                           <span id="att-saved-${s.id}" class="text-[10px] bg-green-500/80 px-1.5 py-0.5 rounded text-white opacity-0 transition-opacity duration-300 tracking-wider">已儲存</span>
                       </div>
                       <div class="flex gap-2 text-sm">
-                         <label class="flex items-center gap-1 cursor-pointer"><input type="radio" name="att_${s.id}" value="attend" onchange="updateAtt('${s.id}')" class="accent-green-500"> 出席</label>
-                         <label class="flex items-center gap-1 cursor-pointer"><input type="radio" name="att_${s.id}" value="leave" onchange="updateAtt('${s.id}')" class="accent-red-500"> 請假</label>
+                         <label class="flex items-center gap-1 cursor-pointer"><input type="radio" name="att_${s.id}" value="attend" onchange="window.updateAtt('${s.id}')" class="accent-green-500"> 出席</label>
+                         <label class="flex items-center gap-1 cursor-pointer"><input type="radio" name="att_${s.id}" value="leave" onchange="window.updateAtt('${s.id}')" class="accent-red-500"> 請假</label>
                       </div>
                    </div>
                    <div id="leave-reason-${s.id}" class="text-right mt-1 hidden">
-                      <select id="reason_${s.id}" class="chalk-input text-black bg-white w-24 text-xs py-1" onchange="updateAtt('${s.id}')">
+                      <select id="reason_${s.id}" class="chalk-input text-black bg-white w-24 text-xs py-1" onchange="window.updateAtt('${s.id}')">
                          <option value="病假">病假</option>
                          <option value="事假">事假</option>
                       </select>
@@ -2029,12 +2144,13 @@
                 `;
             });
             currentList.innerHTML = listHtml || '<div class="text-center text-white/50 py-4">此學年尚未建立學生資料</div>';
-            window.forceRebuildAttendance = false; 
+            window.forceRebuildAttendance = false; // 重繪完成後解除標記
         }
         
-        syncAttendanceDataToUI(); 
+        window.syncAttendanceDataToUI(); // 將狀態同步回去
     };
 
+    // 將資料庫狀態綁定到現有的 HTML (不破壞目前的焦點與輸入)
     window.syncAttendanceDataToUI = () => {
         const dateStr = document.getElementById('attendance-date').value;
         if(!dateStr) return;
@@ -2086,6 +2202,7 @@
         document.getElementById('att-sum-present').innerText = presentCount;
         document.getElementById('att-sum-leave').innerText = leaveCount;
         
+        // 渲染請假細節明細
         let breakdownHtml = '';
         if(sickList.length > 0) breakdownHtml += `<div class="text-[13px] text-red-200 mb-1">病假 ${sickList.length}人：${sickList.join('、')}</div>`;
         if(personalList.length > 0) breakdownHtml += `<div class="text-[13px] text-orange-200">事假 ${personalList.length}人：${personalList.join('、')}</div>`;
@@ -2104,12 +2221,14 @@
         const reasonEl = document.getElementById(`reason_${studentId}`);
         const reason = status === 'leave' ? reasonEl.value : '';
 
+        // 立即改變畫面的 Toggle 顯示
         const reasonContainer = document.getElementById(`leave-reason-${studentId}`);
         if (reasonContainer) {
             if (status === 'leave') reasonContainer.classList.remove('hidden');
             else reasonContainer.classList.add('hidden');
         }
 
+        // 立即改變畫面的名字顏色
         const nameSpan = document.getElementById(`att-name-${studentId}`);
         if (nameSpan) {
             nameSpan.className = `font-bold ${status==='leave'?'text-red-300':(status==='attend'?'text-green-200':'')}`;
@@ -2146,10 +2265,12 @@
         if(personalList.length > 0) breakdownHtml += `<div class="text-[13px] text-orange-200">事假 ${personalList.length}人：${personalList.join('、')}</div>`;
         document.getElementById('att-leave-breakdown').innerHTML = breakdownHtml;
 
+        // 準備儲存至資料庫
         const dayData = attendanceData.find(a => a.id === dateStr) || { records: {} };
         const newRecords = { ...dayData.records };
         newRecords[studentId] = { status, reason };
         
+        // 預先樂觀寫入本地快取陣列，防止重新刷新洗掉畫面
         if (!attendanceData.find(a => a.id === dateStr)) {
             attendanceData.push({ id: dateStr, date: dateStr, records: newRecords });
         } else {
@@ -2159,6 +2280,7 @@
         try {
             await setDoc(getDoc("bear_attendance", dateStr), { date: dateStr, records: newRecords }, { merge: true });
             
+            // 顯示已儲存的小提示，增加使用者安心感
             const savedTag = document.getElementById(`att-saved-${studentId}`);
             if (savedTag) {
                 savedTag.classList.remove('opacity-0');
@@ -2166,6 +2288,7 @@
             }
             updateDailyCardAttendance();
 
+            // 自動跳轉到下一位學生
             if (status !== '') {
                 const currentIndex = currentYearStudents.findIndex(s => s.id === studentId);
                 if (currentIndex !== -1 && currentIndex + 1 < currentYearStudents.length) {
@@ -2182,14 +2305,15 @@
         }
     };
     
+    // 更新每日卡片的點名資訊 (不重新 render 整個區域)
     const updateDailyCardAttendance = () => {
         const weekDays = getWeekDays(schCurrentDate).slice(0, 5);
         const currentYearStudents = [...studentsData].filter(s => s.academicYear === schSettings.academicYear && (!s.status || s.status === '在學'));
         const total = currentYearStudents.length;
         
         weekDays.forEach((d, index) => {
-             const dateStr = formatDate(d); 
-             const docId = dateStr.replace(/\//g, '-'); 
+             const dateStr = formatDate(d); // YYYY/MM/DD
+             const docId = dateStr.replace(/\//g, '-'); // YYYY-MM-DD
              
              const dayAtt = attendanceData.find(a => a.id === docId) || { records: {} };
              let presentCount = 0;
@@ -2211,6 +2335,7 @@
         });
     };
 
+    // =============== 畫面切換控制 ===============
     const checkScheduleUnsaved = (proceedCallback) => {
       if (window.hasUnsavedScheduleChanges) {
           window.openConfirm("⚠️ 本週有尚未儲存的紀錄！\n確定要切換嗎？（離開將遺失未儲存內容）\n(按取消並將游標點擊空白處可完成存檔)", () => {
@@ -2236,7 +2361,7 @@
           if(viewId === 'home') btnHome.classList.add('hidden-view');
           else btnHome.classList.remove('hidden-view');
 
-          renderCurrentView();
+          window.renderCurrentView();
       };
 
       if ((window.hasUnsavedAnnualChanges || window.hasUnsavedScheduleChanges) && viewId !== currentView) {
@@ -2250,30 +2375,32 @@
       }
     };
 
-    const renderCurrentView = () => {
-      if (currentView === 'annual') renderAnnual(true);
-      if (currentView === 'students') renderStudents();
-      if (currentView === 'books') renderBooks();
+    window.renderCurrentView = () => {
+      if (currentView === 'annual') window.renderAnnual(true);
+      if (currentView === 'students') window.renderStudents();
+      if (currentView === 'books') window.renderBooks();
       if (currentView === 'schedule') {
-          renderSchedule();
+          window.renderSchedule();
+          // 如果點名簿日曆沒有值，設定為今天並渲染
           const attDate = document.getElementById('attendance-date');
           if(!attDate.value) {
              const tzOffset = today.getTimezoneOffset() * 60000;
              attDate.value = new Date(today.getTime() - tzOffset).toISOString().split('T')[0];
           }
-          renderAttendance(); 
+          window.renderAttendance(); 
       }
       if (currentView === 'indicators') {
-          renderIndicators();
+          window.renderIndicators();
       }
       lucide.createIcons();
     };
 
+    // =============== 模組 0: 學校年度行事曆 ===============
     window.changeAnnualSemester = () => {
       if (window.hasUnsavedAnnualChanges) {
           window.openConfirm("⚠️ 您有尚未儲存的資料！\n切換學期將遺失目前的變更，確定要切換嗎？\n(按取消並點擊右上角「儲存」來保留資料)", () => {
               window.hasUnsavedAnnualChanges = false;
-              renderAnnual(true);
+              window.renderAnnual(true);
           }, () => {
               const yrInput = document.getElementById('annual-year');
               const semSelect = document.getElementById('annual-semester');
@@ -2282,10 +2409,11 @@
           });
       } else {
           window.hasUnsavedAnnualChanges = false;
-          renderAnnual(true);
+          window.renderAnnual(true);
       }
     };
 
+    // 新增 parameter `fetchFromDb` 以決定是否覆蓋日期欄位
     window.renderAnnual = (fetchFromDb = false) => {
       const year = document.getElementById('annual-year').value || '114';
       const semester = document.getElementById('annual-semester').value || '下學期';
@@ -2304,6 +2432,7 @@
           if (dataObj && dataObj.startDate) {
               sdInput.value = dataObj.startDate;
           } else {
+              // 算好預設的星期一塞進去
               const defaultStart = getSemesterStartMonday(year, semester);
               const yyyy = defaultStart.getFullYear();
               const mm = String(defaultStart.getMonth() + 1).padStart(2, '0');
@@ -2319,6 +2448,7 @@
         savedWeeks = Array(21).fill({ events: '', theme: '', obj: '' });
       }
 
+      // 依據輸入框的日期來建立行事曆
       let startMonday = new Date(document.getElementById('annual-start-date').value);
       if(isNaN(startMonday)) startMonday = getSemesterStartMonday(year, semester);
       
@@ -2358,7 +2488,7 @@
           const dateStr3 = `${d.getMonth()+1}月${d.getDate()}日`;
           
           const baseClasses = `cursor-pointer hover:bg-white/20 transition-all ${!isMainMonth ? 'text-white/40' : (isWeekend ? 'text-red-200' : '')}`;
-          html += `<td id="annual-day-cell-${index}-${dayIndex}" class="${baseClasses}" data-date1="${dateStr}" data-date2="${dateStr2}" data-date3="${dateStr3}" onclick="addDailyEvent(${index}, '${dateStr}')" title="點擊新增 ${dateStr} 重點事項">${d.getDate()}</td>`;
+          html += `<td id="annual-day-cell-${index}-${dayIndex}" class="${baseClasses}" data-date1="${dateStr}" data-date2="${dateStr2}" data-date3="${dateStr3}" onclick="window.addDailyEvent(${index}, '${dateStr}')" title="點擊新增 ${dateStr} 重點事項">${d.getDate()}</td>`;
         });
 
         html += `
@@ -2378,7 +2508,7 @@
         
         if (evEl) {
             evEl.value = savedData.events || '';
-            window.updateHighlights(index); 
+            window.updateHighlights(index); // 初次載入就根據文字進行螢光筆標記
         }
         if (thEl) thEl.value = savedData.theme || '';
         if (obEl) obEl.value = savedData.obj || '';
@@ -2454,7 +2584,6 @@
         }
 
         const isCanvasEnv = window.location.hostname.includes('usercontent.goog') || window.location.hostname === '';
-        
         if (!isCanvasEnv && (!activeKey || activeKey.trim() === '')) {
             window.showAlert('⚠️ 請先在上方欄位貼上您的 Google Gemini API Key 才能使用 AI 功能喔！');
             event.target.value = ''; 
@@ -2493,7 +2622,7 @@
 
             const finalPrompt = base64Data ? promptText : promptText + "\n\n=== 行事曆文字內容開始 ===\n" + extractedText;
 
-            // AI Call 實作略過 (依賴外部 API 函式)
+            // 注意：這裡假設 callGemini 在外部定義。為了維持代碼不報錯，此處不執行實際 call。
             // let textResponse = await callGemini(finalPrompt, true, base64Data, mimeType);
             
             window.hasUnsavedAnnualChanges = true;
@@ -2510,7 +2639,7 @@
     };
 
     window.addDailyEvent = (weekIndex, dateStr) => {
-      openPrompt(`請輸入 ${dateStr} 的重點事項：`, (content) => {
+      window.openPrompt(`請輸入 ${dateStr} 的重點事項：`, (content) => {
         if (!content || content.trim() === '') return;
         const textarea = document.getElementById(`annual-events-${weekIndex}`);
         if (textarea) {
@@ -2523,12 +2652,14 @@
 
           window.hasUnsavedAnnualChanges = true;
           window.updateHighlights(weekIndex);
-          saveAnnual(); 
+          window.saveAnnual(); 
         }
       });
     };
 
-    const renderStudents = () => {
+
+    // =============== 模組 1: 學生管理 ===============
+    window.renderStudents = () => {
       const filterSelect = document.getElementById('stu-filter-year');
       let filterYear = filterSelect ? filterSelect.value : '';
       
@@ -2545,6 +2676,7 @@
               filterYear = schSettings.academicYear || uniqueYears[0] || '114';
               filterSelect.value = filterYear;
           } else {
+              // 更新選項內容後，確保原本選取的值不會跑掉
               filterSelect.innerHTML = optionsHtml;
               filterSelect.value = filterYear;
           }
@@ -2580,8 +2712,8 @@
               <td class="p-2 font-bold ${isEnrolled ? 'text-green-300' : 'text-gray-400'}">${s.status || '在學'}</td>
               <td class="p-2 text-red-200">${s.allergens || '無'}</td><td class="p-2">${s.emergencyContact || '-'}</td><td class="p-2">${s.emergencyPhone || '-'}</td>
               <td class="p-2 flex justify-center gap-2">
-                <button onclick="editStudent('${s.id}')" class="text-yellow-300 hover:scale-110"><i data-lucide="pen-tool" class="w-5 h-5"></i></button>
-                <button onclick="deleteStudent('${s.id}')" class="text-red-400 hover:scale-110"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
+                <button onclick="window.editStudent('${s.id}')" class="text-yellow-300 hover:scale-110"><i data-lucide="pen-tool" class="w-5 h-5"></i></button>
+                <button onclick="window.deleteStudent('${s.id}')" class="text-red-400 hover:scale-110"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
               </td>
             </tr>
             `;
@@ -2630,7 +2762,7 @@
       } else {
         await addDoc(getCol("bear_students"), data);
       }
-      resetStudentForm();
+      window.resetStudentForm();
     };
 
     window.editStudent = (id) => {
@@ -2686,6 +2818,7 @@
       });
     };
 
+    // =============== 模組 2: 藏書管理 ===============
     window.switchBookTab = (tab) => {
       document.getElementById('book-tab-list').classList.toggle('hidden-view', tab !== 'list');
       document.getElementById('book-tab-auto').classList.toggle('hidden-view', tab !== 'auto');
@@ -2710,7 +2843,7 @@
       }
     };
 
-    const renderBooks = () => {
+    window.renderBooks = () => {
       const bookCountEl = document.getElementById('book-count');
       if(bookCountEl) bookCountEl.innerText = booksData.length;
       
@@ -2724,6 +2857,8 @@
       if(availableEl) availableEl.innerText = availableCount;
       
       const tbody = document.getElementById('book-table-body');
+      
+      // 使用 natural sort 自然排序法，依照書籍編號小到大排序 (例如: A1, A2, A10 不會錯亂)
       const sortedBooks = [...booksData].sort((a,b) => String(a.bookNo || '').localeCompare(String(b.bookNo || ''), undefined, {numeric: true, sensitivity: 'base'}));
       
       if(tbody) {
@@ -2745,13 +2880,14 @@
               <td class="p-2"><span class="px-2 py-1 rounded text-xs ${b.isBorrowed==='是'?'bg-red-500/50':'bg-green-500/50'}">${b.isBorrowed === '是' ? '借出中' : '在館內'}</span></td>
               <td class="p-2">${b.borrower || '-'}</td><td class="p-2">${b.borrowDate || '-'}</td>
               <td class="p-2 flex justify-center gap-2">
-                <button onclick="editBook('${b.id}')" class="text-yellow-300 hover:scale-110"><i data-lucide="pen-tool" class="w-5 h-5"></i></button>
-                <button onclick="deleteBook('${b.id}')" class="text-red-400 hover:scale-110"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
+                <button onclick="window.editBook('${b.id}')" class="text-yellow-300 hover:scale-110"><i data-lucide="pen-tool" class="w-5 h-5"></i></button>
+                <button onclick="window.deleteBook('${b.id}')" class="text-red-400 hover:scale-110"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
               </td>
             </tr>
             `;
           }).join('');
 
+          // 更新分頁按鈕狀態
           const pageInfo = document.getElementById('book-page-info');
           if (pageInfo) pageInfo.innerText = `第 ${bookCurrentPage} / ${totalPages} 頁`;
           
@@ -2778,7 +2914,7 @@
 
           cboxArea.innerHTML = autoCurrentBooks.map(b => `
             <label class="flex items-start gap-2 mb-1 cursor-pointer hover:bg-white/10 p-1.5 rounded transition-colors">
-              <input type="checkbox" value="${b.id}" class="auto-book-chk w-4 h-4 accent-green-600 shrink-0 mt-0.5" onchange="handleAutoBookCheck(this)" ${selectedAutoBookIds.has(b.id) ? 'checked' : ''} />
+              <input type="checkbox" value="${b.id}" class="auto-book-chk w-4 h-4 accent-green-600 shrink-0 mt-0.5" onchange="window.handleAutoBookCheck(this)" ${selectedAutoBookIds.has(b.id) ? 'checked' : ''} />
               <span class="text-yellow-100 shrink-0">[${b.bookNo || '-'}]</span>
               <span class="flex-1 break-words leading-snug">${b.title}</span>
             </label>
@@ -2803,7 +2939,7 @@
         if (newPage < 1) newPage = 1;
         if (newPage > totalPages) newPage = totalPages;
         autoBookCurrentPage = newPage;
-        renderBooks();
+        window.renderBooks();
     };
 
     window.handleAutoBookCheck = (chk) => {
@@ -2817,14 +2953,14 @@
         booksData.forEach(b => selectedAutoBookIds.add(b.id));
         const countEl = document.getElementById('auto-selected-count');
         if(countEl) countEl.innerText = selectedAutoBookIds.size;
-        renderBooks();
+        window.renderBooks();
     };
 
     window.clearAllAutoBooks = () => {
         selectedAutoBookIds.clear();
         const countEl = document.getElementById('auto-selected-count');
         if(countEl) countEl.innerText = selectedAutoBookIds.size;
-        renderBooks();
+        window.renderBooks();
     };
 
     window.navBookPage = (dir) => {
@@ -2833,7 +2969,7 @@
         if (newPage < 1) newPage = 1;
         if (newPage > totalPages) newPage = totalPages;
         bookCurrentPage = newPage;
-        renderBooks();
+        window.renderBooks();
     };
 
     window.handleBookSubmit = async (e) => {
@@ -2857,7 +2993,7 @@
       } else {
           await addDoc(getCol("bear_books"), data);
       }
-      resetBookForm();
+      window.resetBookForm();
     };
 
     window.editBook = (id) => {
@@ -2876,7 +3012,7 @@
         document.getElementById('book-author').value = b.author || '';
         document.getElementById('book-isBorrowed').value = b.isBorrowed;
         
-        toggleBorrowFields();
+        window.toggleBorrowFields();
         
         if (b.isBorrowed === '是') {
             document.getElementById('book-borrower').value = b.borrower || '';
@@ -2887,7 +3023,7 @@
         document.getElementById('btn-cancel-book').classList.remove('hidden-view');
         document.getElementById('book-form-title').innerHTML = '<i data-lucide="pen-tool"></i> 修改藏書資料 <span class="text-sm font-normal text-yellow-200 ml-2 border border-yellow-400 px-2 rounded bg-black/30">(編輯模式)</span>';
         
-        renderBooks(); 
+        window.renderBooks(); // 重新渲染以套用高亮列
         lucide.createIcons();
     };
 
@@ -2902,9 +3038,9 @@
         document.getElementById('book-edit-id').value = '';
         document.getElementById('btn-cancel-book').classList.add('hidden-view');
         document.getElementById('book-form-title').innerHTML = '<i data-lucide="plus-circle"></i> 新增藏書 / 借閱紀錄';
-        toggleBorrowFields();
+        window.toggleBorrowFields();
         
-        renderBooks(); 
+        window.renderBooks(); // 清除高亮
         lucide.createIcons();
     };
 
@@ -2917,6 +3053,7 @@
       if(!currentUser) return;
       window.openConfirm('確定要刪除這本藏書紀錄嗎？', async () => {
           try {
+              // 若刪除時剛好這本書有在勾選清單，同步移除
               if (selectedAutoBookIds.has(id)) {
                   selectedAutoBookIds.delete(id);
                   const countEl = document.getElementById('auto-selected-count');
@@ -2946,6 +3083,7 @@
                 const w = weekObj.weekIndex;
                 weekOptions += `<option value="${w+1}">${w+1}</option>`;
             });
+            // 保留目前所選的週次，若無則預設為第一週
             const prevVal = applySelect.value;
             applySelect.innerHTML = weekOptions;
             if (prevVal && applySelect.querySelector(`option[value="${prevVal}"]`)) {
@@ -2955,8 +3093,8 @@
             }
         }
         
-        if (actionBtns) actionBtns.classList.remove('hidden-view'); 
-        window.renderSelectedAutoArrangeWeek(); 
+        if (actionBtns) actionBtns.classList.remove('hidden-view'); // 顯示套用與列印按鈕區塊
+        window.renderSelectedAutoArrangeWeek(); // 只渲染選取到的那一週
     };
 
     window.renderSelectedAutoArrangeWeek = () => {
@@ -3004,6 +3142,7 @@
           .filter(s => s.academicYear === schSettings.academicYear && (!s.status || s.status === '在學'))
           .sort((a,b) => Number(a.seatNo) - Number(b.seatNo));
       
+      // 【防呆檢核】：勾選的書籍數量不可以小於學生數量
       if (selectedAutoBookIds.size < targetStudents.length) {
           window.showAlert(`⚠️ 勾選的書籍數量不足！\n\n目前班級「在學」的學生有 ${targetStudents.length} 人，但您只勾選了 ${selectedAutoBookIds.size} 本書。\n\n為了讓每位學生都能借到不同的書，請至少勾選「大於或等於」在學學生人數的書籍數量。`);
           return;
@@ -3021,10 +3160,12 @@
       const method = document.getElementById('auto-method').value;
       const selectedIds = Array.from(selectedAutoBookIds);
       
+      // 依照書籍編號進行自然排序
       let targetBooks = [...booksData]
           .filter(b => selectedIds.includes(b.id))
           .sort((a,b) => String(a.bookNo || '').localeCompare(String(b.bookNo || ''), undefined, {numeric: true, sensitivity: 'base'}));
           
+      // 根據選擇的分配方式調整書單順序
       if (method === 'reverse') {
           targetBooks.reverse();
       } else if (method === 'random') {
@@ -3034,6 +3175,7 @@
           }
       }
       
+      // 改用 Firebase 支援的 Array of Objects 結構 (避免 nested arrays 錯誤)
       let arrangementData = { weeks: weeks, weeklyArrangements: [] };
 
       for (let w = 0; w < weeks; w++) {
@@ -3065,6 +3207,7 @@
       }
     };
 
+    // 清除自動安排結果
     window.clearAutoArrange = () => {
         if (!currentUser) return;
         window.openConfirm('確定要清除目前的自動安排結果嗎？', async () => {
@@ -3078,6 +3221,7 @@
         });
     };
 
+    // 套用自動安排結果至藏書清單
     window.applyAutoArrangeToBooks = async () => {
         if (!currentUser || !window.currentAutoArrangement) return;
         const selectedWeek = parseInt(document.getElementById('apply-week-select').value);
@@ -3085,6 +3229,7 @@
 
         window.openConfirm(`確定要將「第 ${selectedWeek} 週」的安排結果套用至藏書清單嗎？\n\n系統會自動更新：\n1. 這些書籍的狀態改為「借出中」\n2. 借閱人自動填入對應的學生姓名\n3. 借出日自動填寫為「第 ${selectedWeek} 週」`, async () => {
             
+            // 取得該週的陣列
             const weekObj = window.currentAutoArrangement.weeklyArrangements.find(w => w.weekIndex === selectedWeek - 1);
             if (!weekObj || !weekObj.items) return;
 
@@ -3097,6 +3242,7 @@
             }
 
             try {
+                // 平行發送更新請求以加速處理
                 const promises = weekObj.items.map(item => {
                     if (item.book) {
                         return updateDoc(getDoc("bear_books", item.book.id), {
@@ -3190,11 +3336,13 @@
         }, 300);
     };
 
+    // 依學生分組列印每週書單
     window.printStudentAutoArrange = () => {
         if (!window.currentAutoArrangement || !window.currentAutoArrangement.weeklyArrangements) return;
         const year = schSettings.academicYear;
         const sem = schSettings.semester;
 
+        // 資料結構轉換：依照學生分類
         const studentsMap = new Map(); 
         window.currentAutoArrangement.weeklyArrangements.forEach((weekObj) => {
             const weekIdx = weekObj.weekIndex;
@@ -3207,6 +3355,7 @@
             });
         });
 
+        // 照座號排序
         const sortedStudents = Array.from(studentsMap.values()).sort((a,b) => Number(a.seatNo) - Number(b.seatNo));
 
         const printWindow = window.open('', '', 'height=600,width=800');
@@ -3262,6 +3411,8 @@
         }, 300);
     };
 
+    // =============== 模組 3: 每週排程與行事曆 ===============
+    
     window.openPrompt = (title, callback, defaultValue = '') => {
       document.getElementById('custom-prompt-title').innerText = title;
       document.getElementById('custom-prompt-input').value = defaultValue;
@@ -3275,10 +3426,10 @@
     };
     window.submitPrompt = () => {
       if(promptCallback) promptCallback(document.getElementById('custom-prompt-input').value);
-      closePrompt();
+      window.closePrompt();
     };
 
-    const renderSchedule = () => {
+    window.renderSchedule = () => {
       const weekDays = getWeekDays(schCurrentDate);
       
       viewingWeek = getViewingWeek(schCurrentDate, schSettings.academicYear, schSettings.semester);
@@ -3293,6 +3444,7 @@
         currentCoLead = currentLead === schSettings.leadTeacher ? schSettings.coTeacher : schSettings.leadTeacher;
       }
 
+      // 取得當月份兩位老師的請假字串
       const year = schCurrentDate.getFullYear();
       const month = schCurrentDate.getMonth();
       
@@ -3354,6 +3506,7 @@
       let mCalHtml = '';
       for(let i=0; i<firstDay; i++) mCalHtml += `<div class="w-full h-6 lg:h-7"></div>`;
 
+      // 更新月曆下方的圖例名稱與顏色
       const themes = window.getTeacherThemes();
       
       const legendLeadName = document.getElementById('cal-legend-name-lead');
@@ -3372,6 +3525,7 @@
         const isS = d === schCurrentDate.getDate() && month === schCurrentDate.getMonth();
         let cls = "cursor-pointer rounded w-full h-6 lg:h-7 flex flex-col items-center justify-center mx-auto hover:bg-white/20 relative transition-all duration-200 text-xs lg:text-sm ";
 
+        // 檢查請假資料標示明顯底色
         const dayLeaves = teacherLeavesData[dateStr] || [];
         const hasLeadLeave = dayLeaves.includes(themes.leadName);
         const hasCoLeave = dayLeaves.includes(themes.coName);
@@ -3381,13 +3535,14 @@
         } else if (hasCoLeave) {
             cls += `${themes.co.bg} text-white font-bold ${themes.co.shadow} border ${themes.co.border} `;
         } else if (isT) {
-            cls += "bg-yellow-500 text-black font-black "; 
+            cls += "bg-yellow-500 text-black font-black "; // 今天改為明顯的黃底黑字
         } else if (isS) {
-            cls += "border-2 border-yellow-300 text-yellow-300 font-bold bg-yellow-500/10 "; 
+            cls += "border-2 border-yellow-300 text-yellow-300 font-bold bg-yellow-500/10 "; // 選取日加粗邊框與背景
         } else {
             cls += "text-white ";
         }
 
+        // 當天或選取日若剛好有請假，加上明顯外框強調
         if (isT && (hasLeadLeave || hasCoLeave)) {
              cls += "ring-2 ring-yellow-400 ring-offset-1 ring-offset-[#346b4b] ";
         } else if (isS && (hasLeadLeave || hasCoLeave)) {
@@ -3402,7 +3557,7 @@
             dotsHtml += `</div>`;
         }
 
-        mCalHtml += `<div onclick="setSchDate(${year}, ${month}, ${d})" class="${cls}"><span class="${hasLeadLeave||hasCoLeave ? 'mb-1' : ''}">${d}</span>${dotsHtml}</div>`;
+        mCalHtml += `<div onclick="window.setSchDate(${year}, ${month}, ${d})" class="${cls}"><span class="${hasLeadLeave||hasCoLeave ? 'mb-1' : ''}">${d}</span>${dotsHtml}</div>`;
       }
       document.getElementById('mini-cal-grid').innerHTML = mCalHtml;
 
@@ -3424,7 +3579,7 @@
                   <div class="flex items-center gap-2 w-full xl:w-auto justify-between xl:justify-end">
                       <div class="flex items-center bg-black/20 border border-white/30 rounded px-2 py-1 focus-within:border-yellow-400 transition-colors">
                           <span class="text-sm text-yellow-200 mr-1">天氣:</span>
-                          <input type="text" id="sch-weather-${index}" class="bg-transparent text-sm text-white placeholder-white/40 w-12 outline-none" placeholder="如:晴" oninput="window.hasUnsavedScheduleChanges=true" onblur="saveDailyDoc('${dateStr}', ${index})">
+                          <input type="text" id="sch-weather-${index}" class="bg-transparent text-sm text-white placeholder-white/40 w-12 outline-none" placeholder="如:晴" oninput="window.hasUnsavedScheduleChanges=true" onblur="window.saveDailyDoc('${dateStr}', ${index})">
                       </div>
                       <span id="save-status-${index}" class="text-xs text-white/70 font-bold bg-black/30 px-2 py-1 rounded-full opacity-0 transition-opacity duration-300 whitespace-nowrap">✅ 已儲存</span>
                   </div>
@@ -3446,12 +3601,12 @@
                               <option value="age45">4-5歲</option>
                               <option value="age56">5-6歲</option>
                           </select>
-                          <button onclick="suggestIndicators(${index}, 'act')" class="text-[10px] bg-purple-600/80 hover:bg-purple-500 px-2 py-0.5 rounded text-white flex items-center gap-1 shadow border border-purple-400 transition-colors">
+                          <button onclick="window.suggestIndicators(${index}, 'act')" class="text-[10px] bg-purple-600/80 hover:bg-purple-500 px-2 py-0.5 rounded text-white flex items-center gap-1 shadow border border-purple-400 transition-colors">
                               <i data-lucide="sparkles" class="w-3 h-3"></i>推薦指標
                           </button>
                       </div>
                   </div>
-                  <textarea id="sch-act-${index}" class="schedule-textarea min-h-[80px]" oninput="window.hasUnsavedScheduleChanges=true" onblur="saveDailyDoc('${dateStr}', ${index})" placeholder="請輸入教學活動..."></textarea>
+                  <textarea id="sch-act-${index}" class="schedule-textarea min-h-[80px]" oninput="window.hasUnsavedScheduleChanges=true" onblur="window.saveDailyDoc('${dateStr}', ${index})" placeholder="請輸入教學活動..."></textarea>
                   <div id="sch-act-suggestions-${index}" class="hidden flex-col gap-1 text-xs text-yellow-100 bg-black/40 p-2.5 rounded shadow-inner border border-white/10 mt-0.5"></div>
               </div>
               <div class="flex flex-col gap-1.5">
@@ -3464,12 +3619,12 @@
                               <option value="age45">4-5歲</option>
                               <option value="age56">5-6歲</option>
                           </select>
-                          <button onclick="suggestIndicators(${index}, 'motor')" class="text-[10px] bg-purple-600/80 hover:bg-purple-500 px-2 py-0.5 rounded text-white flex items-center gap-1 shadow border border-purple-400 transition-colors">
+                          <button onclick="window.suggestIndicators(${index}, 'motor')" class="text-[10px] bg-purple-600/80 hover:bg-purple-500 px-2 py-0.5 rounded text-white flex items-center gap-1 shadow border border-purple-400 transition-colors">
                               <i data-lucide="sparkles" class="w-3 h-3"></i>推薦指標
                           </button>
                       </div>
                   </div>
-                  <textarea id="sch-motor-${index}" class="schedule-textarea min-h-[60px]" oninput="window.hasUnsavedScheduleChanges=true" onblur="saveDailyDoc('${dateStr}', ${index})" placeholder="請輸入大肌肉活動..."></textarea>
+                  <textarea id="sch-motor-${index}" class="schedule-textarea min-h-[60px]" oninput="window.hasUnsavedScheduleChanges=true" onblur="window.saveDailyDoc('${dateStr}', ${index})" placeholder="請輸入大肌肉活動..."></textarea>
                   <div id="sch-motor-suggestions-${index}" class="hidden flex-col gap-1 text-xs text-yellow-100 bg-black/40 p-2.5 rounded shadow-inner border border-white/10 mt-0.5"></div>
               </div>
               <div class="flex flex-col gap-1.5">
@@ -3482,27 +3637,28 @@
                               <option value="age45">4-5歲</option>
                               <option value="age56">5-6歲</option>
                           </select>
-                          <button onclick="suggestIndicators(${index}, 'ref')" class="text-[10px] bg-purple-600/80 hover:bg-purple-500 px-2 py-0.5 rounded text-white flex items-center gap-1 shadow border border-purple-400 transition-colors">
+                          <button onclick="window.suggestIndicators(${index}, 'ref')" class="text-[10px] bg-purple-600/80 hover:bg-purple-500 px-2 py-0.5 rounded text-white flex items-center gap-1 shadow border border-purple-400 transition-colors">
                               <i data-lucide="sparkles" class="w-3 h-3"></i>推薦指標
                           </button>
                       </div>
                   </div>
-                  <textarea id="sch-ref-${index}" class="schedule-textarea min-h-[60px]" oninput="window.hasUnsavedScheduleChanges=true" onblur="saveDailyDoc('${dateStr}', ${index})" placeholder="請輸入教學省思..."></textarea>
+                  <textarea id="sch-ref-${index}" class="schedule-textarea min-h-[60px]" oninput="window.hasUnsavedScheduleChanges=true" onblur="window.saveDailyDoc('${dateStr}', ${index})" placeholder="請輸入教學省思..."></textarea>
                   <div id="sch-ref-suggestions-${index}" class="hidden flex-col gap-1 text-xs text-yellow-100 bg-black/40 p-2.5 rounded shadow-inner border border-white/10 mt-0.5"></div>
               </div>
               <div class="flex flex-col gap-1.5">
                   <label class="text-sm font-bold text-yellow-200">📝 軼事記錄</label>
-                  <textarea id="sch-ane-${index}" class="schedule-textarea min-h-[60px]" oninput="window.hasUnsavedScheduleChanges=true" onblur="saveDailyDoc('${dateStr}', ${index})" placeholder="請輸入幼兒軼事..."></textarea>
+                  <textarea id="sch-ane-${index}" class="schedule-textarea min-h-[60px]" oninput="window.hasUnsavedScheduleChanges=true" onblur="window.saveDailyDoc('${dateStr}', ${index})" placeholder="請輸入幼兒軼事..."></textarea>
               </div>
               <div class="flex flex-col gap-1.5">
                   <label class="text-sm font-bold text-yellow-200">🤝 親師溝通</label>
-                  <textarea id="sch-com-${index}" class="schedule-textarea min-h-[60px]" oninput="window.hasUnsavedScheduleChanges=true" onblur="saveDailyDoc('${dateStr}', ${index})" placeholder="請輸入親師溝通事項..."></textarea>
+                  <textarea id="sch-com-${index}" class="schedule-textarea min-h-[60px]" oninput="window.hasUnsavedScheduleChanges=true" onblur="window.saveDailyDoc('${dateStr}', ${index})" placeholder="請輸入親師溝通事項..."></textarea>
               </div>
           </div>
         `;
       });
       document.getElementById('sch-days-container').innerHTML = daysHtml;
 
+      // 畫面產生後，安全注入各區塊資料
       workDays.forEach((d, index) => {
         const docId = formatDate(d).replace(/\//g, '-');
         const entry = scheduleEntriesData.find(e => e.id === docId) || {};
@@ -3528,6 +3684,7 @@
       
       updateDailyCardAttendance();
 
+      // 自動抓取天氣 API
       const toLocalISODate = (date) => {
           const tzOffset = date.getTimezoneOffset() * 60000;
           return new Date(date.getTime() - tzOffset).toISOString().split('T')[0];
@@ -3547,7 +3704,7 @@
                  const code = data.daily.weathercode[index];
                  wInput.value = getWeatherDesc(code);
                  const dateStr = formatDate(d);
-                 saveDailyDoc(dateStr, index); 
+                 window.saveDailyDoc(dateStr, index); 
               }
             });
           }
@@ -3592,6 +3749,7 @@
       }
     };
 
+    // 匯出 1日1頁 Word 檔功能
     window.exportWeeklyToWord = () => {
       const weekDays = getWeekDays(schCurrentDate).slice(0, 5); 
       const dayNames = ['日', '一', '二', '三', '四', '五', '六'];
@@ -3631,6 +3789,7 @@
           const docId = dateStr.replace(/\//g, '-');
           const entry = scheduleEntriesData.find(e => e.id === docId) || {};
           
+          // 計算該日出席狀況
           const dayAtt = attendanceData.find(a => a.id === docId) || { records: {} };
           let presentCount = 0;
           let leaveCount = 0;
@@ -3642,6 +3801,7 @@
           
           const formatText = (text) => (text || '').replace(/\n/g, '<br>');
           
+          // 強制分頁代碼
           const pageBreak = index > 0 ? '<div style="page-break-before: always;"></div><br clear="all" style="page-break-before:always; mso-break-type:page-break" />' : '';
 
           htmlContent += `
@@ -3678,7 +3838,7 @@
       checkScheduleUnsaved(() => {
         schCurrentDate.setDate(schCurrentDate.getDate() + (dir * 7));
         localStorage.setItem('bearClass_schCurrentDate', schCurrentDate.toISOString()); 
-        renderSchedule();
+        window.renderSchedule();
       });
     };
 
@@ -3686,7 +3846,7 @@
       checkScheduleUnsaved(() => {
         schCurrentDate = new Date(schCurrentDate.getFullYear(), schCurrentDate.getMonth() + dir, 1);
         localStorage.setItem('bearClass_schCurrentDate', schCurrentDate.toISOString());
-        renderSchedule();
+        window.renderSchedule();
       });
     };
 
@@ -3694,7 +3854,7 @@
       checkScheduleUnsaved(() => {
         schCurrentDate = new Date(y, m, d);
         localStorage.setItem('bearClass_schCurrentDate', schCurrentDate.toISOString());
-        renderSchedule();
+        window.renderSchedule();
       });
     };
 
@@ -3716,7 +3876,7 @@
     window.openTeacherSettings = () => {
       document.getElementById('set-teacher-lead').value = schSettings.leadTeacher;
       document.getElementById('set-teacher-co').value = schSettings.coTeacher;
-      updateFirstLeadDropdown();
+      window.updateFirstLeadDropdown();
       document.getElementById('set-teacher-firstLead').value = schSettings.firstWeekLead;
       document.getElementById('sch-teacher-modal').classList.remove('hidden-view');
     };
@@ -3762,6 +3922,8 @@
       }
     };
 
+    // =============== Firebase 驗證與資料庫綁定 ===============
+    
     const handleSnapshotError = (error) => {
       console.error("Firestore Snapshot Error:", error);
       if (error && error.code === 'permission-denied') {
@@ -3797,7 +3959,7 @@
             } else {
                 teacherLeavesData = {};
             }
-            if(currentView === 'schedule') renderSchedule();
+            if(currentView === 'schedule') window.renderSchedule();
             const leaveDrawer = document.getElementById('leave-drawer');
             if(leaveDrawer && !leaveDrawer.classList.contains('-translate-x-full')) {
                 window.initStagedLeaves();
@@ -3809,30 +3971,30 @@
             studentsData = snap.docs.map(d => ({id: d.id, ...d.data()}));
             window.forceRebuildAttendance = true; 
             if(['students', 'books', 'schedule'].includes(currentView)) {
-                renderCurrentView();
+                window.renderCurrentView();
             }
-            renderAttendance(); 
+            window.renderAttendance(); 
             const loading = document.getElementById('loading-screen');
             if (!loading.classList.contains('hidden-view')) {
                 loading.classList.add('hidden-view');
-                navigate(currentView);
+                window.navigate(currentView);
             }
         }, handleSnapshotError);
 
         onSnapshot(getCol("bear_attendance"), snap => {
             attendanceData = snap.docs.map(d => ({id: d.id, ...d.data()}));
             window.isAttendanceLoaded = true;
-            if(currentView === 'schedule') syncAttendanceDataToUI(); 
+            if(currentView === 'schedule') window.syncAttendanceDataToUI(); 
         }, handleSnapshotError);
 
         onSnapshot(getCol("bear_indicators"), snap => {
             indicatorsDb = snap.docs.map(d => ({id: d.id, ...d.data()}));
-            if(currentView === 'indicators') renderIndicators();
+            if(currentView === 'indicators') window.renderIndicators();
         }, handleSnapshotError);
         
         onSnapshot(getCol("bear_books"), snap => {
             booksData = snap.docs.map(d => ({id: d.id, ...d.data()}));
-            if(currentView === 'books') renderCurrentView();
+            if(currentView === 'books') window.renderCurrentView();
         }, handleSnapshotError);
 
         onSnapshot(getCol("bear_autoArrangements"), snap => {
@@ -3851,7 +4013,7 @@
         onSnapshot(getCol("bear_annualEvents"), snap => {
             annualEventsData = snap.docs.map(d => ({id: d.id, ...d.data()}));
             if(['annual', 'schedule'].includes(currentView) && !window.hasUnsavedAnnualChanges) {
-               renderCurrentView();
+               window.renderCurrentView();
             }
         }, handleSnapshotError);
 
@@ -3877,7 +4039,7 @@
             }
 
             if(['annual', 'schedule'].includes(currentView) && !window.hasUnsavedAnnualChanges) {
-               renderCurrentView();
+               window.renderCurrentView();
             }
             const stuYearInput = document.getElementById('stu-year');
             if(stuYearInput && !stuYearInput.value) stuYearInput.value = schSettings.academicYear;
@@ -3886,7 +4048,7 @@
         onSnapshot(getCol("bear_scheduleEntries"), snap => {
             scheduleEntriesData = snap.docs.map(d => ({id: d.id, ...d.data()}));
             if(currentView === 'schedule' && !window.hasUnsavedScheduleChanges) {
-               renderCurrentView();
+               window.renderCurrentView();
             }
         }, handleSnapshotError);
 
@@ -3894,7 +4056,7 @@
           const loading = document.getElementById('loading-screen');
           if (!loading.classList.contains('hidden-view')) {
             loading.classList.add('hidden-view'); 
-            navigate(currentView); 
+            window.navigate(currentView); 
           }
         }, 2000);
     };
@@ -3905,6 +4067,7 @@
         if (!auth.currentUser) {
           await signInAnonymously(auth);
         } else {
+          // 若已登入，直接啟動監聽 (這裡必須補上，否則有時會卡載入畫面)
           currentUser = auth.currentUser;
           startDataListeners();
         }
